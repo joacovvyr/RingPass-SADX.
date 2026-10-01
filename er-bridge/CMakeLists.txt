@@ -24,3 +24,5 @@ add_custom_command(TARGET RingPassER POST_BUILD
         "$<TARGET_FILE:RingPassER>"
         "${CMAKE_BINARY_DIR}/package/elden-ring/RingPassER.dll"
 )
+
+target_link_libraries(RingPassER PRIVATE Version)
