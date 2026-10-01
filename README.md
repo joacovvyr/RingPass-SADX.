@@ -17,7 +17,7 @@ Elden Ring remains authoritative for:
 - host-world HP/damage
 - streaming/rendering
 
-## Initial targets
+## Initial characters
 
 - Sonic
 - Tails
@@ -28,32 +28,56 @@ Elden Ring remains authoritative for:
 
 ## Architecture
 
-```
-SADX + SA Mod Loader
-        |
-  RingPassSADX.dll
-        |
- Shared Memory IPC
-        |
-  RingPassER.dll
-        |
-    Elden Ring
+```text
+SADX (32-bit)                         Elden Ring (64-bit)
+     |                                      |
+RingPassSADX.dll                        RingPassER.dll
+     |                                      |
+     +---------- Shared Memory IPC ----------+
+                 |
+            RingPass tools
 ```
 
-## Milestone 0.1
+IPC v2 uses separate writer channels:
+
+- SADX -> Elden Ring: character state
+- Elden Ring -> SADX: host state, camera, collision probes, target proxies
+
+This avoids both games writing the same frame structure.
+
+## Current development status
 
 - [x] repository skeleton
-- [x] shared protocol definition
-- [x] SADX bridge stub
-- [x] Elden Ring bridge stub
-- [x] read active SADX character
-- [x] read character transform/state
-- [x] shared-memory transport
-- [ ] read Elden Ring ground probe
-- [ ] camera synchronization
-- [ ] hide Tarnished proxy
-- [ ] first collision passthrough
+- [x] SADX Mod Loader integration
+- [x] active SADX character/state telemetry
+- [x] bidirectional IPC v2
+- [x] separate x86 SADX / x64 Elden Ring builds
+- [x] coordinate mapping layer
+- [x] RingPass monitor
+- [x] FakeSADX simulator
+- [x] FakeER simulator
+- [x] launcher/bridge diagnostics
+- [x] Elden Ring x64 bridge bootstrap
+- [ ] validated Elden Ring player transform hook
+- [ ] validated Elden Ring camera hook
+- [ ] real Elden Ring ground probe
+- [ ] real nearby enemy enumeration
+- [ ] SADX target-proxy injection
+- [ ] hide local Tarnished render
+- [ ] first Limgrave collision passthrough
+- [ ] composited SADX character render
+- [ ] Seamless multiplayer state adapter
+
+## Test without the games
+
+The repository includes FakeSADX and FakeER so transport, target proxies and world-probe behavior can be tested without launching both games.
+
+See `docs/SIMULATION.md`.
 
 ## Seamless Co-op
 
-The project is intentionally structured so Seamless compatibility can be added later without making multiplayer hooks part of the core bridge.
+Seamless support is intentionally outside RingPass Core. The Elden Ring adapter will be designed to coexist with external DLL loading and avoid owning the game's networking layer.
+
+## Safety / launch mode
+
+Host-side development is for offline/modded Elden Ring sessions. RingPass is not intended to bypass Easy Anti-Cheat or operate in official online play.
