@@ -6,6 +6,7 @@
 #include <iostream>
 #include <thread>
 
+#include <ringpass/health.hpp>
 #include <ringpass/ipc.hpp>
 
 namespace {
@@ -36,26 +37,18 @@ const char* HostName(ringpass::HostState state)
     }
 }
 
-bool Fresh(std::uint64_t heartbeat)
-{
-    if (!heartbeat)
-        return false;
-
-    const auto now = GetTickCount64();
-    return now >= heartbeat &&
-           (now - heartbeat) <= ringpass::kHeartbeatTimeoutMs;
-}
-
 } // namespace
 
 int main()
 {
-    std::cout << "RingPass Monitor 0.3\n";
+    std::cout << "RingPass Monitor 0.4\n";
     std::cout << "Waiting for IPC...\n";
 
     ringpass::SharedMemory ipc;
+
     while (!ipc.open_existing(FILE_MAP_READ))
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(500));
 
     while (true)
     {
@@ -63,52 +56,137 @@ int main()
         ringpass::ErToSadxChannel er{};
 
         const auto* state = ipc.get();
-        const bool sadxOk =
-            ringpass::read_stable(state->sadx, sadx) &&
-            Fresh(sadx.heartbeatMs);
 
-        const bool erOk =
-            ringpass::read_stable(state->er, er) &&
-            Fresh(er.heartbeatMs);
+        const bool sadxRead =
+            ringpass::read_stable(
+                state->sadx,
+                sadx);
+
+        const bool erRead =
+            ringpass::read_stable(
+                state->er,
+                er);
+
+        const auto sadxHealth =
+            sadxRead
+                ? ringpass::channel_health(
+                    sadx.protocolVersion,
+                    sadx.heartbeatMs)
+                : ringpass::ChannelHealth::Offline;
+
+        const auto erHealth =
+            erRead
+                ? ringpass::channel_health(
+                    er.protocolVersion,
+                    er.heartbeatMs)
+                : ringpass::ChannelHealth::Offline;
 
         std::cout << "\x1b[2J\x1b[H";
-        std::cout << "RingPass Monitor 0.3\n\n";
+        std::cout << "RingPass Monitor 0.4 / protocol "
+                  << ringpass::kProtocolVersion
+                  << "\n\n";
 
-        if (sadxOk)
+        std::cout << "[SADX -> ER] "
+                  << ringpass::channel_health_name(
+                      sadxHealth)
+                  << "\n";
+
+        if (sadxRead)
         {
             const auto& p = sadx.player;
-            std::cout << "[SADX -> ER] LIVE\n";
-            std::cout << "Frame:     " << sadx.frame << "\n";
-            std::cout << "Character: " << CharacterName(p.character) << "\n";
-            std::cout << std::fixed << std::setprecision(2);
-            std::cout << "Position:  " << p.position.x << " / "
-                      << p.position.y << " / " << p.position.z << "\n";
-            std::cout << "Velocity:  " << p.velocity.x << " / "
-                      << p.velocity.y << " / " << p.velocity.z << "\n";
-            std::cout << "Action:    " << p.action << "\n";
-            std::cout << "Animation: " << p.animation << "\n";
-            std::cout << "Grounded:  " << (p.grounded ? "YES" : "NO") << "\n";
-            std::cout << "Rings:     " << p.rings << "\n";
+
+            std::cout << "Frame:     "
+                      << sadx.frame << "\n";
+            std::cout << "Character: "
+                      << CharacterName(p.character)
+                      << "\n";
+
+            std::cout
+                << std::fixed
+                << std::setprecision(3);
+
+            std::cout << "Position:  "
+                      << p.position.x << " / "
+                      << p.position.y << " / "
+                      << p.position.z << "\n";
+
+            std::cout << "Velocity:  "
+                      << p.velocity.x << " / "
+                      << p.velocity.y << " / "
+                      << p.velocity.z << "\n";
+
+            std::cout << "Action:    "
+                      << p.action << "\n";
+            std::cout << "Animation: "
+                      << p.animation << "\n";
+            std::cout << "Grounded:  "
+                      << (p.grounded ? "YES" : "NO")
+                      << "\n";
+            std::cout << "Rings:     "
+                      << p.rings << "\n";
         }
-        else
-        {
-            std::cout << "[SADX -> ER] STALE / OFFLINE\n";
-        }
+
+        std::cout << "\n[ER -> SADX] "
+                  << ringpass::channel_health_name(
+                      erHealth);
+
+        if (erRead)
+            std::cout << " / "
+                      << HostName(er.hostState);
 
         std::cout << "\n";
 
-        if (erOk)
+        if (erRead)
         {
-            std::cout << "[ER -> SADX] " << HostName(er.hostState) << " / LIVE\n";
-            std::cout << "Frame:     " << er.frame << "\n";
-            std::cout << "Ground:    " << (er.groundProbe.hit ? "HIT" : "MISS") << "\n";
-            std::cout << "Targets:   " << er.targetCount << "\n";
-        }
-        else
-        {
-            std::cout << "[ER -> SADX] STALE / OFFLINE\n";
+            std::cout << "Frame:     "
+                      << er.frame << "\n";
+
+            std::cout
+                << std::fixed
+                << std::setprecision(3);
+
+            std::cout << "Player:    "
+                      << er.hostPlayerPosition.x
+                      << " / "
+                      << er.hostPlayerPosition.y
+                      << " / "
+                      << er.hostPlayerPosition.z
+                      << "\n";
+
+            std::cout << "Camera:    "
+                      << er.camera.position.x
+                      << " / "
+                      << er.camera.position.y
+                      << " / "
+                      << er.camera.position.z
+                      << "\n";
+
+            std::cout << "Camera Q:  "
+                      << er.camera.rotation.x
+                      << " / "
+                      << er.camera.rotation.y
+                      << " / "
+                      << er.camera.rotation.z
+                      << " / "
+                      << er.camera.rotation.w
+                      << "\n";
+
+            std::cout << "FOV(rad):  "
+                      << er.camera.fovRadians
+                      << "\n";
+
+            std::cout << "Ground:    "
+                      << (er.groundProbe.hit
+                          ? "HIT"
+                          : "MISS")
+                      << "\n";
+
+            std::cout << "Targets:   "
+                      << er.targetCount
+                      << "\n";
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(100));
     }
 }
