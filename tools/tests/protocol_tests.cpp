@@ -1,8 +1,11 @@
+#include <windows.h>
+
 #include <cassert>
 #include <cmath>
 #include <iostream>
 
 #include <ringpass/coordinates.hpp>
+#include <ringpass/health.hpp>
 #include <ringpass/protocol.hpp>
 #include <ringpass/target_proxy.hpp>
 
@@ -60,6 +63,35 @@ void test_protocol_defaults()
     assert(state.protocolVersion == ringpass::kProtocolVersion);
     assert(state.sadx.protocolVersion == ringpass::kProtocolVersion);
     assert(state.er.protocolVersion == ringpass::kProtocolVersion);
+    assert(sizeof(ringpass::SharedState) == 5840);
+}
+
+void test_channel_health()
+{
+    const auto now = GetTickCount64();
+
+    assert(ringpass::channel_health(
+        ringpass::kProtocolVersion, now) ==
+        ringpass::ChannelHealth::Live);
+
+    const auto stale = now > (ringpass::kHeartbeatTimeoutMs + 100)
+        ? now - ringpass::kHeartbeatTimeoutMs - 100
+        : 1;
+
+    if (now > ringpass::kHeartbeatTimeoutMs + 100)
+    {
+        assert(ringpass::channel_health(
+            ringpass::kProtocolVersion, stale) ==
+            ringpass::ChannelHealth::Stale);
+    }
+
+    assert(ringpass::channel_health(
+        ringpass::kProtocolVersion + 1, now) ==
+        ringpass::ChannelHealth::Incompatible);
+
+    assert(ringpass::channel_health(
+        ringpass::kProtocolVersion, 0) ==
+        ringpass::ChannelHealth::Offline);
 }
 
 } // namespace
@@ -69,6 +101,7 @@ int main()
     test_coordinate_roundtrip();
     test_target_sort();
     test_protocol_defaults();
+    test_channel_health();
 
     std::cout << "RingPass protocol tests passed.\n";
     return 0;
