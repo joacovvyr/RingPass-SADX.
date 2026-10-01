@@ -1,0 +1,41 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "sadx-x86",
+      "displayName": "SADX bridge (Win32)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "Win32",
+      "binaryDir": "${sourceDir}/build/sadx-x86",
+      "cacheVariables": {
+        "RINGPASS_BUILD_SADX": "ON",
+        "RINGPASS_BUILD_ER": "OFF",
+        "RINGPASS_BUILD_TOOLS": "ON"
+      }
+    },
+    {
+      "name": "er-x64",
+      "displayName": "Elden Ring bridge (x64)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/er-x64",
+      "cacheVariables": {
+        "RINGPASS_BUILD_SADX": "OFF",
+        "RINGPASS_BUILD_ER": "ON",
+        "RINGPASS_BUILD_TOOLS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "sadx-release",
+      "configurePreset": "sadx-x86",
+      "configuration": "Release"
+    },
+    {
+      "name": "er-release",
+      "configurePreset": "er-x64",
+      "configuration": "Release"
+    }
+  ]
+}
