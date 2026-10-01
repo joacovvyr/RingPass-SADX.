@@ -1,0 +1,3 @@
+add_executable(RingPassLauncher main.cpp)
+target_link_libraries(RingPassLauncher PRIVATE ringpass_protocol)
+target_compile_definitions(RingPassLauncher PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
