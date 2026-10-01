@@ -7,12 +7,12 @@
 
 namespace ringpass {
 
-constexpr std::uint32_t kProtocolVersion = 3;
+constexpr std::uint32_t kProtocolVersion = 4;
 constexpr std::uint32_t kSharedMagic = 0x52505358u; // RPSX
 constexpr std::size_t kMaxTargets = 128;
 constexpr std::uint64_t kHeartbeatTimeoutMs = 2000;
 constexpr const char* kSharedMemoryName =
-    "Local\\RingPassSADX_SharedState_v3";
+    "Local\\RingPassSADX_SharedState_v4";
 
 #pragma pack(push, 4)
 
@@ -81,7 +81,7 @@ struct WorldProbe {
 struct CameraState {
     Vec3 position{};
     Quat rotation{};
-    float fovDegrees{60.0f};
+    float fovRadians{1.0f};
 };
 
 struct SadxToErChannel {
