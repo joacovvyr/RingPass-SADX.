@@ -20,62 +20,67 @@ jobs:
   build-release:
     runs-on: windows-latest
 
-    steps:
-      - name: Checkout RingPass
-        uses: actions/checkout@v4
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: D:\\a
 
-      - name: Checkout SADX Mod Loader SDK
-        uses: actions/checkout@v4
-        with:
-          repository: X-Hax/sadx-mod-loader
-          path: _deps/sadx-mod-loader
-          fetch-depth: 1
+    steps:
+      - name: Clone RingPass into Windows-safe path
+        run: |
+          if (Test-Path "D:\\a\\ringpass") { Remove-Item "D:\\a\\ringpass" -Recurse -Force }
+          git clone "https://github.com/${{ github.repository }}.git" "D:\\a\\ringpass"
+          Set-Location "D:\\a\\ringpass"
+          git checkout "${{ github.sha }}"
+
+      - name: Clone SADX Mod Loader SDK
+        run: |
+          if (Test-Path "D:\\a\\sadx-mod-loader") { Remove-Item "D:\\a\\sadx-mod-loader" -Recurse -Force }
+          git clone --depth 1 "https://github.com/X-Hax/sadx-mod-loader.git" "D:\\a\\sadx-mod-loader"
 
       - name: Configure Win32
-        shell: pwsh
-        run: >
-          cmake -S . -B build -A Win32
-          "-DSADX_MOD_LOADER_ROOT=$env:GITHUB_WORKSPACE/_deps/sadx-mod-loader"
+        run: |
+          cmake -S "D:\\a\\ringpass" -B "D:\\a\\ringpass-build" -A Win32 "-DSADX_MOD_LOADER_ROOT=D:\\a\\sadx-mod-loader"
 
       - name: Build Release
-        shell: pwsh
-        run: cmake --build build --config Release --parallel
+        run: |
+          cmake --build "D:\\a\\ringpass-build" --config Release --parallel
 
       - name: Assemble downloadable package
-        shell: pwsh
         run: |
-          $stage = Join-Path $env:GITHUB_WORKSPACE "release-stage"
+          $stage = "D:\\a\\ringpass-release"
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
-          Copy-Item -Recurse -Force "build/package/RingPass-SADX" "$stage/RingPass-SADX"
-          Copy-Item -Force "build/package/tools/RingPassMonitor.exe" "$stage/RingPassMonitor.exe"
-          Copy-Item -Force "docs/BUILD_SADX.md" "$stage/README-INSTALL.txt"
+          Copy-Item -Recurse -Force "D:\\a\\ringpass-build\\package\\RingPass-SADX" "$stage\\RingPass-SADX"
+          Copy-Item -Force "D:\\a\\ringpass-build\\package\\tools\\RingPassMonitor.exe" "$stage\\RingPassMonitor.exe"
+          Copy-Item -Force "D:\\a\\ringpass\\docs\\BUILD_SADX.md" "$stage\\README-INSTALL.txt"
 
-          $zip = Join-Path $env:GITHUB_WORKSPACE "RingPass-SADX-v0.1.0-test.zip"
+          $zip = "D:\\a\\RingPass-SADX-v0.1.0-test.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path "$stage/*" -DestinationPath $zip
+          Compress-Archive -Path "$stage\\*" -DestinationPath $zip
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
           name: RingPass-SADX-v0.1.0-test
-          path: RingPass-SADX-v0.1.0-test.zip
+          path: D:\a\RingPass-SADX-v0.1.0-test.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = "v0.1.0-test"
-          $zip = "RingPass-SADX-v0.1.0-test.zip"
+          $zip = "D:\\a\\RingPass-SADX-v0.1.0-test.zip"
+          $repo = "${{ github.repository }}"
 
-          gh release view $tag 2>$null
+          gh release view $tag --repo $repo 2>$null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag $zip --clobber
+            gh release upload $tag $zip --clobber --repo $repo
           }
           else {
-            gh release create $tag $zip --target "$env:GITHUB_SHA" --title "RingPass-SADX v0.1.0-test" --prerelease --notes @"
+            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.1.0-test" --prerelease --notes @"
           First downloadable RingPass-SADX test build.
 
           Includes:
