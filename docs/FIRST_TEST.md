@@ -1,6 +1,6 @@
 # First test checklist
 
-Use the latest development release.
+Use the latest development release (`v0.5.0-dev` or newer).
 
 ## 1. Infrastructure self-test
 
@@ -70,7 +70,16 @@ Targets: 3
 
 The SADX log should report that three host target proxies were prepared.
 
-They are deliberately **not injected into SADX's native target list yet**.
+They are deliberately **not injected into SADX's native target list by default**.
+
+The package contains `SADX-Mod/RingPass.ini`. Keep:
+
+```ini
+[Experimental]
+InjectTargets=0
+```
+
+for the first tests. After base telemetry, coordinate mapping and stability are confirmed, the native `CCL_Analyze` injection can be enabled for Homing Attack/Gamma experiments without rebuilding the DLL.
 
 ## 4. Real Elden Ring telemetry test
 
@@ -98,6 +107,7 @@ FOV(rad): ...
 
 For Elden Ring file version **2.7.1.0 / App Ver. 1.17.1**, the development bridge will additionally attempt:
 
+- stable map-coordinate conversion
 - game-thread ground raycast
 - nearby hostile character enumeration
 - TargetProxy publication
