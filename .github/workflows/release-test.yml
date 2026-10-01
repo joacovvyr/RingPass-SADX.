@@ -127,6 +127,9 @@ jobs:
             Copy-Item -Force $file.FullName "$stage\Tools\$name"
           }
 
+          Copy-Item -Force "D:\a\ringpass\tools\RunFirstTest.cmd" "$stage\Tools\RunFirstTest.cmd"
+          Copy-Item -Force "D:\a\ringpass\tools\Capture15Seconds.cmd" "$stage\Tools\Capture15Seconds.cmd"
+
           Copy-Item -Recurse -Force "D:\a\ringpass\docs\*" "$stage\Docs"
           Copy-Item -Force "D:\a\ringpass\THIRD_PARTY.md" "$stage\THIRD_PARTY.md"
 
