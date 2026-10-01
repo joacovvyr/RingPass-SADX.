@@ -1,19 +1,17 @@
 #include <windows.h>
 
 #include <chrono>
-#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <thread>
 
-#include <ringpass/protocol.hpp>
+#include <ringpass/ipc.hpp>
 
 namespace {
 
 const char* CharacterName(ringpass::CharacterId id)
 {
     using ringpass::CharacterId;
-
     switch (id)
     {
     case CharacterId::Sonic: return "Sonic";
@@ -26,100 +24,75 @@ const char* CharacterName(ringpass::CharacterId id)
     }
 }
 
-bool ReadStableFrame(
-    const ringpass::SharedFrame* shared,
-    ringpass::SharedFrame& out)
+const char* HostName(ringpass::HostState state)
 {
-    for (int attempt = 0; attempt < 10; ++attempt)
+    switch (state)
     {
-        const std::uint32_t before = shared->sequence;
-
-        if (before & 1u)
-            continue;
-
-        MemoryBarrier();
-        out = *shared;
-        MemoryBarrier();
-
-        const std::uint32_t after = shared->sequence;
-
-        if (before == after && !(after & 1u))
-            return true;
+    case ringpass::HostState::Booting: return "BOOTING";
+    case ringpass::HostState::Menu: return "MENU";
+    case ringpass::HostState::InWorld: return "IN WORLD";
+    default: return "OFFLINE";
     }
-
-    return false;
 }
 
 } // namespace
 
 int main()
 {
-    std::cout << "RingPass SADX Monitor 0.1\n";
-    std::cout << "Waiting for RingPassSADX.dll...\n\n";
+    std::cout << "RingPass Monitor 0.2\n";
+    std::cout << "Waiting for IPC...\n";
 
-    HANDLE mapping = nullptr;
-
-    while (!mapping)
-    {
-        mapping = OpenFileMappingA(
-            FILE_MAP_READ,
-            FALSE,
-            ringpass::kSADXSharedMemoryName);
-
-        if (!mapping)
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-
-    auto* shared = static_cast<const ringpass::SharedFrame*>(
-        MapViewOfFile(
-            mapping,
-            FILE_MAP_READ,
-            0,
-            0,
-            sizeof(ringpass::SharedFrame)));
-
-    if (!shared)
-    {
-        std::cerr << "Could not map RingPass shared memory.\n";
-        CloseHandle(mapping);
-        return 1;
-    }
+    ringpass::SharedMemory ipc;
+    while (!ipc.open_existing(FILE_MAP_READ))
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     while (true)
     {
-        ringpass::SharedFrame frame{};
+        ringpass::SadxToErChannel sadx{};
+        ringpass::ErToSadxChannel er{};
 
-        if (ReadStableFrame(shared, frame))
+        const auto* state = ipc.get();
+        const bool sadxOk = ringpass::read_stable(state->sadx, sadx);
+        const bool erOk = ringpass::read_stable(state->er, er);
+
+        std::cout << "\x1b[2J\x1b[H";
+        std::cout << "RingPass Monitor 0.2\n\n";
+
+        if (sadxOk)
         {
-            const auto& p = frame.player;
-
-            std::cout << "\x1b[2J\x1b[H";
-            std::cout << "RingPass SADX Bridge 0.1\n\n";
-            std::cout << "CONNECTED\n";
-            std::cout << "Frame:     " << frame.sadxFrame << "\n";
+            const auto& p = sadx.player;
+            std::cout << "[SADX -> ER] CONNECTED\n";
+            std::cout << "Frame:     " << sadx.frame << "\n";
             std::cout << "Character: " << CharacterName(p.character) << "\n";
-
             std::cout << std::fixed << std::setprecision(2);
-            std::cout << "Position:  "
-                      << p.position.x << " / "
-                      << p.position.y << " / "
-                      << p.position.z << "\n";
-            std::cout << "Velocity:  "
-                      << p.velocity.x << " / "
-                      << p.velocity.y << " / "
-                      << p.velocity.z << "\n";
-            std::cout << "Rotation:  "
-                      << p.rotation.x << " / "
-                      << p.rotation.y << " / "
-                      << p.rotation.z << "\n";
-
+            std::cout << "Position:  " << p.position.x << " / "
+                      << p.position.y << " / " << p.position.z << "\n";
+            std::cout << "Velocity:  " << p.velocity.x << " / "
+                      << p.velocity.y << " / " << p.velocity.z << "\n";
             std::cout << "Action:    " << p.action << "\n";
             std::cout << "Animation: " << p.animation << "\n";
-            std::cout << "Grounded:  "
-                      << (p.grounded ? "YES" : "NO") << "\n";
+            std::cout << "Grounded:  " << (p.grounded ? "YES" : "NO") << "\n";
             std::cout << "Rings:     " << p.rings << "\n";
         }
+        else
+        {
+            std::cout << "[SADX -> ER] NO STABLE FRAME\n";
+        }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::cout << "\n";
+
+        if (erOk)
+        {
+            std::cout << "[ER -> SADX] " << HostName(er.hostState) << "\n";
+            std::cout << "Frame:     " << er.frame << "\n";
+            std::cout << "Ground:    " << (er.groundProbe.hit ? "HIT" : "MISS") << "\n";
+            std::cout << "Targets:   " << er.targetCount << "\n";
+        }
+        else
+        {
+            std::cout << "[ER -> SADX] NO STABLE FRAME\n";
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
