@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include "game_views.hpp"
@@ -18,6 +19,9 @@ struct HostSample {
     ringpass::Vec3 playerPosition{};
     ringpass::CameraState camera{};
     ringpass::WorldProbe groundProbe{};
+
+    std::uint32_t targetCount{};
+    std::array<ringpass::TargetProxy, ringpass::kMaxTargets> targets{};
 };
 
 class WorldReader {
