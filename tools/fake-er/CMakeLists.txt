@@ -1,0 +1,3 @@
+add_executable(FakeER main.cpp)
+target_link_libraries(FakeER PRIVATE ringpass_protocol)
+target_compile_definitions(FakeER PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
