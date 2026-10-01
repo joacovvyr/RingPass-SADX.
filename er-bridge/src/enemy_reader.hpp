@@ -13,7 +13,7 @@ public:
     bool initialize(HostEnvironment& host);
 
     std::uint32_t sample(
-        ringpass::Vec3 playerPosition,
+        ringpass::Vec3 havokOffset,
         ringpass::TargetProxy* out,
         std::uint32_t capacity) const;
 
