@@ -118,6 +118,16 @@ static_assert(std::is_trivially_copyable_v<Vec3>);
 static_assert(std::is_trivially_copyable_v<CharacterState>);
 static_assert(std::is_trivially_copyable_v<SharedState>);
 
+static_assert(sizeof(Vec3) == 12);
+static_assert(sizeof(Quat) == 16);
+static_assert(sizeof(CharacterState) == 56);
+static_assert(sizeof(TargetProxy) == 44);
+static_assert(sizeof(WorldProbe) == 44);
+static_assert(sizeof(CameraState) == 32);
+static_assert(sizeof(SadxToErChannel) == 80);
+static_assert(sizeof(ErToSadxChannel) == 5752);
+static_assert(sizeof(SharedState) == 5840);
+
 static_assert(offsetof(SadxToErChannel, sequence) == 0);
 static_assert(offsetof(SadxToErChannel, protocolVersion) == 4);
 static_assert(offsetof(SadxToErChannel, frame) == 8);
