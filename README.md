@@ -38,7 +38,7 @@ RingPassSADX.dll                        RingPassER.dll
             RingPass tools
 ```
 
-IPC v2 uses separate writer channels:
+IPC v4 uses separate writer channels:
 
 - SADX -> Elden Ring: character state
 - Elden Ring -> SADX: host state, camera, collision probes, target proxies
@@ -50,7 +50,7 @@ This avoids both games writing the same frame structure.
 - [x] repository skeleton
 - [x] SADX Mod Loader integration
 - [x] active SADX character/state telemetry
-- [x] bidirectional IPC v3 with heartbeats / stale detection
+- [x] bidirectional IPC v4 with heartbeats / stale detection
 - [x] separate x86 SADX / x64 Elden Ring builds
 - [x] coordinate mapping layer
 - [x] fixed x86/x64 binary IPC layout
@@ -61,8 +61,11 @@ This avoids both games writing the same frame structure.
 - [x] FakeER simulator
 - [x] launcher/bridge diagnostics
 - [x] Elden Ring x64 bridge bootstrap
-- [ ] validated Elden Ring player transform hook
-- [ ] validated Elden Ring camera hook
+- [x] Elden Ring executable fingerprint + signature scanner
+- [x] read-only Elden Ring player/camera reader implemented
+- [x] one-click cross-bitness IPC self-test
+- [ ] validate Elden Ring player-position signature on target PC
+- [ ] validate Elden Ring camera signature/matrix on target PC
 - [ ] real Elden Ring ground probe
 - [ ] real nearby enemy enumeration
 - [ ] live SADX target-list injection (builder complete; hook timing pending)
