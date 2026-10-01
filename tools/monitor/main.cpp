@@ -41,7 +41,7 @@ const char* HostName(ringpass::HostState state)
 
 int main()
 {
-    std::cout << "RingPass Monitor 0.4\n";
+    std::cout << "RingPass Monitor 0.5\n";
     std::cout << "Waiting for IPC...\n";
 
     ringpass::SharedMemory ipc;
@@ -140,6 +140,12 @@ int main()
         {
             std::cout << "Frame:     "
                       << er.frame << "\n";
+
+            std::cout << "Zone:      0x"
+                      << std::hex
+                      << er.hostZone
+                      << std::dec
+                      << "\n";
 
             std::cout
                 << std::fixed
