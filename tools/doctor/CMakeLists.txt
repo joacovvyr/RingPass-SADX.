@@ -1,3 +1,3 @@
 add_executable(RingPassDoctor main.cpp)
-target_link_libraries(RingPassDoctor PRIVATE ringpass_protocol)
+target_link_libraries(RingPassDoctor PRIVATE ringpass_protocol version)
 target_compile_definitions(RingPassDoctor PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
