@@ -2,8 +2,8 @@
 #include <tlhelp32.h>
 
 #include <chrono>
+#include <cstdint>
 #include <iostream>
-#include <string>
 #include <thread>
 
 #include <ringpass/ipc.hpp>
@@ -20,7 +20,6 @@ bool ProcessExists(const wchar_t* name)
         return false;
 
     bool found = false;
-
     if (Process32FirstW(snapshot, &entry))
     {
         do
@@ -37,6 +36,16 @@ bool ProcessExists(const wchar_t* name)
     return found;
 }
 
+bool Fresh(std::uint64_t heartbeat)
+{
+    if (!heartbeat)
+        return false;
+
+    const std::uint64_t now = GetTickCount64();
+    return now >= heartbeat &&
+           (now - heartbeat) <= ringpass::kHeartbeatTimeoutMs;
+}
+
 const char* YesNo(bool value)
 {
     return value ? "YES" : "NO";
@@ -46,15 +55,11 @@ const char* YesNo(bool value)
 
 int main()
 {
-    std::cout << "RingPass Launcher / Diagnostics 0.2\n";
-    std::cout << "This build does not launch official-online Elden Ring.\n\n";
-
     while (true)
     {
         const bool sadxProcess =
             ProcessExists(L"sonic.exe") ||
             ProcessExists(L"Sonic Adventure DX.exe");
-
         const bool erProcess = ProcessExists(L"eldenring.exe");
 
         ringpass::SharedMemory ipc;
@@ -67,24 +72,30 @@ int main()
         {
             ringpass::SadxToErChannel sadx{};
             ringpass::ErToSadxChannel er{};
-            sadxChannel = ringpass::read_stable(ipc.get()->sadx, sadx) &&
-                          sadx.frame > 0;
-            erChannel = ringpass::read_stable(ipc.get()->er, er) &&
-                        er.frame > 0;
+
+            sadxChannel =
+                ringpass::read_stable(ipc.get()->sadx, sadx) &&
+                sadx.protocolVersion == ringpass::kProtocolVersion &&
+                Fresh(sadx.heartbeatMs);
+
+            erChannel =
+                ringpass::read_stable(ipc.get()->er, er) &&
+                er.protocolVersion == ringpass::kProtocolVersion &&
+                Fresh(er.heartbeatMs);
         }
 
         std::cout << "\x1b[2J\x1b[H";
-        std::cout << "RingPass Launcher / Diagnostics 0.2\n\n";
+        std::cout << "RingPass Launcher / Diagnostics 0.3\n\n";
         std::cout << "SADX process:       " << YesNo(sadxProcess) << "\n";
         std::cout << "Elden Ring process: " << YesNo(erProcess) << "\n";
-        std::cout << "IPC:                " << YesNo(ipcOpen) << "\n";
-        std::cout << "SADX bridge data:   " << YesNo(sadxChannel) << "\n";
-        std::cout << "ER bridge data:     " << YesNo(erChannel) << "\n\n";
+        std::cout << "IPC v3:             " << YesNo(ipcOpen) << "\n";
+        std::cout << "SADX bridge live:   " << YesNo(sadxChannel) << "\n";
+        std::cout << "ER bridge live:     " << YesNo(erChannel) << "\n\n";
 
         if (sadxChannel && erChannel)
             std::cout << "BRIDGE READY\n";
         else
-            std::cout << "Waiting for both sides...\n";
+            std::cout << "Waiting for live bridge heartbeats...\n";
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
