@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 
+#include "ground_probe_service.hpp"
 #include "host_environment.hpp"
 #include "world_reader.hpp"
 
@@ -17,6 +18,7 @@ std::uint64_t g_frame = 0;
 
 ringpass::er::HostEnvironment g_host;
 ringpass::er::WorldReader g_world;
+ringpass::er::GroundProbeService g_ground;
 
 void PublishHostSample(
     ringpass::HostState hostState,
@@ -41,6 +43,16 @@ void PublishHostSample(
 
         if (sample->cameraValid)
             channel.camera = sample->camera;
+
+        if (sample->groundValid)
+            channel.groundProbe =
+                sample->groundProbe;
+        else
+            channel.groundProbe = {};
+    }
+    else
+    {
+        channel.groundProbe = {};
     }
 
     ringpass::end_write(channel);
@@ -75,22 +87,48 @@ DWORD WINAPI BridgeThread(LPVOID)
             "read-only player/camera reader ready");
     }
 
+    const bool groundReady =
+        worldReaderReady &&
+        g_ground.initialize(g_host);
+
+    if (!groundReady)
+    {
+        g_host.log().write(
+            "ground probe unavailable; "
+            "player/camera telemetry can still run");
+    }
+
     g_host.log().write(
         "RingPassER bridge thread started");
 
     while (g_running.load())
     {
         ringpass::er::HostSample sample{};
+        const bool sampled =
+            worldReaderReady &&
+            g_world.sample(sample);
 
-        if (worldReaderReady &&
-            g_world.sample(sample))
+        if (sampled && sample.playerValid)
         {
-            const auto state =
-                sample.playerValid
-                    ? ringpass::HostState::InWorld
-                    : ringpass::HostState::Menu;
+            if (groundReady)
+            {
+                g_ground.request(
+                    sample.playerPosition);
 
-            PublishHostSample(state, &sample);
+                sample.groundValid =
+                    g_ground.read_latest(
+                        sample.groundProbe);
+            }
+
+            PublishHostSample(
+                ringpass::HostState::InWorld,
+                &sample);
+        }
+        else if (sampled)
+        {
+            PublishHostSample(
+                ringpass::HostState::Menu,
+                &sample);
         }
         else
         {
@@ -101,6 +139,8 @@ DWORD WINAPI BridgeThread(LPVOID)
 
         Sleep(16);
     }
+
+    g_ground.shutdown();
 
     PublishHostSample(
         ringpass::HostState::Offline,
@@ -128,7 +168,9 @@ BOOL APIENTRY DllMain(
     if (reason == DLL_PROCESS_ATTACH)
     {
         DisableThreadLibraryCalls(module);
+
         g_running.store(true);
+
         g_thread = CreateThread(
             nullptr,
             0,
@@ -140,6 +182,8 @@ BOOL APIENTRY DllMain(
     else if (reason == DLL_PROCESS_DETACH)
     {
         g_running.store(false);
+
+        g_ground.shutdown();
 
         if (g_thread)
         {
