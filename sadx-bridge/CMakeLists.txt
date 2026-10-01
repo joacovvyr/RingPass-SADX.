@@ -17,6 +17,8 @@ endif()
 
 add_library(RingPassSADX SHARED
     src/plugin.cpp
+    src/settings.cpp
+    src/target_injection.cpp
     src/target_proxy_adapter.cpp
 )
 
@@ -44,4 +46,7 @@ add_custom_command(TARGET RingPassSADX POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/mod.ini"
         "${RINGPASS_SADX_PACKAGE_DIR}/mod.ini"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/RingPass.ini"
+        "${RINGPASS_SADX_PACKAGE_DIR}/RingPass.ini"
 )
