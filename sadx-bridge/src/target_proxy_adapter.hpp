@@ -4,6 +4,8 @@
 #include <cstdint>
 
 #include "SADXModLoader.h"
+
+#include <ringpass/coordinates.hpp>
 #include <ringpass/protocol.hpp>
 
 namespace ringpass::sadx {
@@ -13,17 +15,38 @@ struct SyntheticTarget {
     colliwk collision{};
     CCL_INFO collisionInfo{};
     std::uint64_t hostId{};
+    float distanceSquared{};
     bool active{false};
 };
 
 class TargetProxyAdapter {
 public:
-    void rebuild(const ErToSadxChannel& hostFrame, const taskwk* player);
+    void clear();
 
-    [[nodiscard]] std::uint32_t count() const { return count_; }
-    [[nodiscard]] SyntheticTarget* target(std::uint32_t index)
+    void rebuild(
+        const ErToSadxChannel& hostFrame,
+        const taskwk* player,
+        const CoordinateTransform& transform);
+
+    [[nodiscard]] std::uint32_t count() const
     {
-        return index < count_ ? &targets_[index] : nullptr;
+        return count_;
+    }
+
+    [[nodiscard]] SyntheticTarget* target(
+        std::uint32_t index)
+    {
+        return index < count_
+            ? &targets_[index]
+            : nullptr;
+    }
+
+    [[nodiscard]] const SyntheticTarget* target(
+        std::uint32_t index) const
+    {
+        return index < count_
+            ? &targets_[index]
+            : nullptr;
     }
 
 private:
