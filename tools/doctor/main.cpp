@@ -154,6 +154,32 @@ int main()
         report << "groundHit=" << static_cast<int>(er.groundProbe.hit) << "\n";
         report << "groundDistance=" << er.groundProbe.distance << "\n";
         report << "targetCount=" << er.targetCount << "\n";
+
+        const std::uint32_t shown =
+            er.targetCount < 3 ? er.targetCount : 3;
+
+        for (std::uint32_t i = 0; i < shown; ++i)
+        {
+            const auto& t = er.targets[i];
+
+            report << "target[" << i << "].id=" << t.id << "\n";
+            report << "target[" << i << "].position="
+                   << t.position.x << ","
+                   << t.position.y << ","
+                   << t.position.z << "\n";
+            report << "target[" << i << "].aimPoint="
+                   << t.aimPoint.x << ","
+                   << t.aimPoint.y << ","
+                   << t.aimPoint.z << "\n";
+            report << "target[" << i << "].radius="
+                   << t.radius << "\n";
+            report << "target[" << i << "].hp="
+                   << t.hp << "\n";
+            report << "target[" << i << "].targetable="
+                   << static_cast<int>(t.targetable) << "\n";
+            report << "target[" << i << "].alive="
+                   << static_cast<int>(t.alive) << "\n";
+        }
     }
 
     report.flush();
