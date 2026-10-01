@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <deque>
 #include <iostream>
 #include <string>
 
@@ -118,6 +119,53 @@ std::filesystem::path exe_dir()
     wchar_t buffer[MAX_PATH]{};
     GetModuleFileNameW(nullptr, buffer, MAX_PATH);
     return std::filesystem::path(buffer).parent_path();
+}
+
+
+std::filesystem::path er_log_path()
+{
+    wchar_t buffer[MAX_PATH]{};
+    const DWORD count = GetEnvironmentVariableW(
+        L"LOCALAPPDATA",
+        buffer,
+        MAX_PATH);
+
+    std::filesystem::path root;
+    if (count > 0 && count < MAX_PATH)
+        root = buffer;
+    else
+        root = std::filesystem::temp_directory_path();
+
+    return root / "RingPass" / "logs" / "ringpass-er.log";
+}
+
+void append_log_tail(
+    std::ofstream& report,
+    const std::filesystem::path& path,
+    std::size_t maxLines = 40)
+{
+    report << "\n[ER log tail]\n";
+    report << "path=" << path.string() << "\n";
+
+    std::ifstream in(path);
+    if (!in)
+    {
+        report << "(log file not found)\n";
+        return;
+    }
+
+    std::deque<std::string> lines;
+    std::string line;
+
+    while (std::getline(in, line))
+    {
+        lines.push_back(line);
+        if (lines.size() > maxLines)
+            lines.pop_front();
+    }
+
+    for (const auto& value : lines)
+        report << value << "\n";
 }
 
 const char* bool_name(bool value)
@@ -267,6 +315,8 @@ int main()
                    << static_cast<int>(t.alive) << "\n";
         }
     }
+
+    append_log_tail(report, er_log_path());
 
     report.flush();
 
