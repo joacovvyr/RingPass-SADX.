@@ -48,7 +48,10 @@ int main(int argc, char** argv)
            "er_health,er_frame,host_state,host_zone,"
            "er_x,er_y,er_z,"
            "cam_x,cam_y,cam_z,fov,"
-           "ground_hit,ground_distance,target_count\n";
+           "ground_hit,ground_distance,target_count,"
+           "target0_id,target0_x,target0_y,target0_z,target0_targetable,target0_alive,"
+           "target1_id,target1_x,target1_y,target1_z,target1_targetable,target1_alive,"
+           "target2_id,target2_x,target2_y,target2_z,target2_targetable,target2_alive\n";
 
     ringpass::SharedMemory ipc;
 
@@ -111,8 +114,21 @@ int main(int argc, char** argv)
             << er.camera.fovRadians << ","
             << static_cast<int>(er.groundProbe.hit) << ","
             << er.groundProbe.distance << ","
-            << er.targetCount
-            << "\n";
+            << er.targetCount;
+
+        for (std::uint32_t i = 0; i < 3; ++i)
+        {
+            const auto& t = er.targets[i];
+            csv << ","
+                << t.id << ","
+                << t.position.x << ","
+                << t.position.y << ","
+                << t.position.z << ","
+                << static_cast<int>(t.targetable) << ","
+                << static_cast<int>(t.alive);
+        }
+
+        csv << "\n";
 
         std::this_thread::sleep_for(
             std::chrono::milliseconds(100));
