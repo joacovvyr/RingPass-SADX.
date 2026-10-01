@@ -1,0 +1,16 @@
+# RingPass-SADX: Mod Engine 2 example configuration.
+# Place RingPassER.dll next to modengine2_launcher.exe, or replace the
+# relative path below with an absolute path using escaped backslashes.
+
+[modengine]
+debug = true
+external_dlls = [ "RingPassER.dll" ]
+
+[extension.mod_loader]
+enabled = true
+loose_params = false
+
+mods = []
+
+[extension.scylla_hide]
+enabled = false
