@@ -32,6 +32,7 @@ int main()
         er.frame = ++frame;
         er.heartbeatMs = GetTickCount64();
         er.hostState = ringpass::HostState::InWorld;
+        er.hostZone = 60u << 24;
         er.hostPlayerPosition = sadx.player.position;
 
         er.groundProbe.origin = sadx.player.position;
