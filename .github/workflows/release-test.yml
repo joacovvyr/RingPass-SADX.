@@ -51,9 +51,13 @@ jobs:
             -DRINGPASS_BUILD_TOOLS=ON `
             "-DSADX_MOD_LOADER_ROOT=D:\a\sadx-mod-loader"
 
-      - name: Build SADX x86
+      - name: Build SADX x86 and x86 tools
         run: |
           cmake --build "D:\a\build-sadx" --config Release --parallel
+
+      - name: Run x86 protocol tests
+        run: |
+          ctest --test-dir "D:\a\build-sadx" -C Release --output-on-failure
 
       - name: Configure Elden Ring x64 and tools
         run: |
@@ -66,9 +70,32 @@ jobs:
         run: |
           cmake --build "D:\a\build-er" --config Release --parallel
 
-      - name: Run protocol tests
+      - name: Run x64 protocol tests
         run: |
           ctest --test-dir "D:\a\build-er" -C Release --output-on-failure
+
+      - name: Run x86-to-x64 IPC self test
+        run: |
+          $cross = "D:\a\cross-test"
+          if (Test-Path $cross) { Remove-Item $cross -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $cross | Out-Null
+
+          $fakeSadx = Get-ChildItem "D:\a\build-sadx" -Recurse -Filter "FakeSADX.exe" | Select-Object -First 1
+          $fakeEr = Get-ChildItem "D:\a\build-er" -Recurse -Filter "FakeER.exe" | Select-Object -First 1
+          $selfTest = Get-ChildItem "D:\a\build-er" -Recurse -Filter "RingPassSelfTest.exe" | Select-Object -First 1
+
+          if (-not $fakeSadx) { throw "Missing x86 FakeSADX.exe" }
+          if (-not $fakeEr) { throw "Missing x64 FakeER.exe" }
+          if (-not $selfTest) { throw "Missing RingPassSelfTest.exe" }
+
+          Copy-Item -Force $fakeSadx.FullName "$cross\FakeSADX.exe"
+          Copy-Item -Force $fakeEr.FullName "$cross\FakeER.exe"
+          Copy-Item -Force $selfTest.FullName "$cross\RingPassSelfTest.exe"
+
+          & "$cross\RingPassSelfTest.exe"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Cross-bitness self test failed with exit code $LASTEXITCODE"
+          }
 
       - name: Assemble downloadable package
         run: |
@@ -84,15 +111,22 @@ jobs:
           Copy-Item -Force "D:\a\ringpass\sadx-bridge\mod.ini" "$stage\SADX-Mod\mod.ini"
           Copy-Item -Force "D:\a\build-er\package\elden-ring\RingPassER.dll" "$stage\EldenRing-Bridge\RingPassER.dll"
 
-          foreach ($name in @("RingPassMonitor.exe", "FakeER.exe", "FakeSADX.exe", "RingPassLauncher.exe")) {
+          $fakeSadx = Get-ChildItem "D:\a\build-sadx" -Recurse -Filter "FakeSADX.exe" | Select-Object -First 1
+          $fakeEr = Get-ChildItem "D:\a\build-er" -Recurse -Filter "FakeER.exe" | Select-Object -First 1
+          if (-not $fakeSadx) { throw "Missing x86 FakeSADX.exe" }
+          if (-not $fakeEr) { throw "Missing x64 FakeER.exe" }
+
+          Copy-Item -Force $fakeSadx.FullName "$stage\Tools\FakeSADX.exe"
+          Copy-Item -Force $fakeEr.FullName "$stage\Tools\FakeER.exe"
+
+          foreach ($name in @("RingPassMonitor.exe", "RingPassLauncher.exe", "RingPassSelfTest.exe")) {
             $file = Get-ChildItem "D:\a\build-er" -Recurse -Filter $name | Select-Object -First 1
             if (-not $file) { throw "Missing tool: $name" }
             Copy-Item -Force $file.FullName "$stage\Tools\$name"
           }
 
-          Copy-Item -Force "D:\a\ringpass\docs\BUILD_SADX.md" "$stage\Docs\BUILD_SADX.md"
-          Copy-Item -Force "D:\a\ringpass\docs\SIMULATION.md" "$stage\Docs\SIMULATION.md"
-          Copy-Item -Force "D:\a\ringpass\docs\ARCHITECTURE.md" "$stage\Docs\ARCHITECTURE.md"
+          Copy-Item -Recurse -Force "D:\a\ringpass\docs\*" "$stage\Docs"
+          Copy-Item -Force "D:\a\ringpass\THIRD_PARTY.md" "$stage\THIRD_PARTY.md"
 
           $zip = "D:\a\RingPass-SADX-v0.4.0-dev.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
