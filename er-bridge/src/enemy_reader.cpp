@@ -105,7 +105,7 @@ bool EnemyReader::initialize(HostEnvironment& host)
 }
 
 std::uint32_t EnemyReader::sample(
-    ringpass::Vec3,
+    ringpass::Vec3 havokOffset,
     ringpass::TargetProxy* out,
     std::uint32_t capacity) const
 {
@@ -300,16 +300,16 @@ std::uint32_t EnemyReader::sample(
         target.id = handle;
         target.position =
         {
-            position[0],
-            position[1],
-            position[2]
+            position[0] - havokOffset.x,
+            position[1] - havokOffset.y,
+            position[2] - havokOffset.z
         };
 
         target.aimPoint =
         {
-            position[0],
-            position[1] + height * 0.6f,
-            position[2]
+            position[0] - havokOffset.x,
+            position[1] + height * 0.6f - havokOffset.y,
+            position[2] - havokOffset.z
         };
 
         target.radius = radius;
