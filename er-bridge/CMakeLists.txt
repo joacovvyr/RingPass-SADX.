@@ -4,6 +4,7 @@ endif()
 
 add_library(RingPassER SHARED
     src/dllmain.cpp
+    src/enemy_reader.cpp
     src/host_environment.cpp
     src/ground_probe_service.cpp
     src/module_scanner.cpp
