@@ -10,13 +10,36 @@ if(NOT WIN32)
     message(FATAL_ERROR "RingPass-SADX currently targets Windows.")
 endif()
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    message(FATAL_ERROR
-        "SADX mods must be built as 32-bit x86. "
-        "With Visual Studio use: cmake -A Win32 ...")
+option(RINGPASS_BUILD_SADX "Build the 32-bit SADX Mod Loader bridge" OFF)
+option(RINGPASS_BUILD_ER "Build the 64-bit Elden Ring host bridge" OFF)
+option(RINGPASS_BUILD_TOOLS "Build diagnostic/simulation tools" ON)
+
+if(NOT RINGPASS_BUILD_SADX AND NOT RINGPASS_BUILD_ER)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(RINGPASS_BUILD_SADX ON)
+    else()
+        set(RINGPASS_BUILD_ER ON)
+    endif()
+endif()
+
+if(RINGPASS_BUILD_SADX AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    message(FATAL_ERROR "RingPassSADX.dll must be built as Win32/x86.")
+endif()
+
+if(RINGPASS_BUILD_ER AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    message(FATAL_ERROR "RingPassER.dll must be built as x64.")
 endif()
 
 add_subdirectory(shared)
-add_subdirectory(sadx-bridge)
-add_subdirectory(er-bridge)
-add_subdirectory(tools)
+
+if(RINGPASS_BUILD_SADX)
+    add_subdirectory(sadx-bridge)
+endif()
+
+if(RINGPASS_BUILD_ER)
+    add_subdirectory(er-bridge)
+endif()
+
+if(RINGPASS_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
