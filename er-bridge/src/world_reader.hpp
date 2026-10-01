@@ -13,8 +13,11 @@ namespace ringpass::er {
 struct HostSample {
     bool playerValid{false};
     bool cameraValid{false};
+    bool groundValid{false};
+
     ringpass::Vec3 playerPosition{};
     ringpass::CameraState camera{};
+    ringpass::WorldProbe groundProbe{};
 };
 
 class WorldReader {
