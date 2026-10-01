@@ -1,6 +1,7 @@
 #include <windows.h>
 
 #include <chrono>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <thread>
@@ -35,11 +36,21 @@ const char* HostName(ringpass::HostState state)
     }
 }
 
+bool Fresh(std::uint64_t heartbeat)
+{
+    if (!heartbeat)
+        return false;
+
+    const auto now = GetTickCount64();
+    return now >= heartbeat &&
+           (now - heartbeat) <= ringpass::kHeartbeatTimeoutMs;
+}
+
 } // namespace
 
 int main()
 {
-    std::cout << "RingPass Monitor 0.2\n";
+    std::cout << "RingPass Monitor 0.3\n";
     std::cout << "Waiting for IPC...\n";
 
     ringpass::SharedMemory ipc;
@@ -52,16 +63,21 @@ int main()
         ringpass::ErToSadxChannel er{};
 
         const auto* state = ipc.get();
-        const bool sadxOk = ringpass::read_stable(state->sadx, sadx);
-        const bool erOk = ringpass::read_stable(state->er, er);
+        const bool sadxOk =
+            ringpass::read_stable(state->sadx, sadx) &&
+            Fresh(sadx.heartbeatMs);
+
+        const bool erOk =
+            ringpass::read_stable(state->er, er) &&
+            Fresh(er.heartbeatMs);
 
         std::cout << "\x1b[2J\x1b[H";
-        std::cout << "RingPass Monitor 0.2\n\n";
+        std::cout << "RingPass Monitor 0.3\n\n";
 
         if (sadxOk)
         {
             const auto& p = sadx.player;
-            std::cout << "[SADX -> ER] CONNECTED\n";
+            std::cout << "[SADX -> ER] LIVE\n";
             std::cout << "Frame:     " << sadx.frame << "\n";
             std::cout << "Character: " << CharacterName(p.character) << "\n";
             std::cout << std::fixed << std::setprecision(2);
@@ -76,21 +92,21 @@ int main()
         }
         else
         {
-            std::cout << "[SADX -> ER] NO STABLE FRAME\n";
+            std::cout << "[SADX -> ER] STALE / OFFLINE\n";
         }
 
         std::cout << "\n";
 
         if (erOk)
         {
-            std::cout << "[ER -> SADX] " << HostName(er.hostState) << "\n";
+            std::cout << "[ER -> SADX] " << HostName(er.hostState) << " / LIVE\n";
             std::cout << "Frame:     " << er.frame << "\n";
             std::cout << "Ground:    " << (er.groundProbe.hit ? "HIT" : "MISS") << "\n";
             std::cout << "Targets:   " << er.targetCount << "\n";
         }
         else
         {
-            std::cout << "[ER -> SADX] NO STABLE FRAME\n";
+            std::cout << "[ER -> SADX] STALE / OFFLINE\n";
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
