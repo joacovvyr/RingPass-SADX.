@@ -7,12 +7,12 @@
 
 namespace ringpass {
 
-constexpr std::uint32_t kProtocolVersion = 4;
+constexpr std::uint32_t kProtocolVersion = 5;
 constexpr std::uint32_t kSharedMagic = 0x52505358u; // RPSX
 constexpr std::size_t kMaxTargets = 128;
 constexpr std::uint64_t kHeartbeatTimeoutMs = 2000;
 constexpr const char* kSharedMemoryName =
-    "Local\\RingPassSADX_SharedState_v4";
+    "Local\\RingPassSADX_SharedState_v5";
 
 #pragma pack(push, 4)
 
@@ -98,6 +98,7 @@ struct ErToSadxChannel {
     std::uint64_t frame{};
     std::uint64_t heartbeatMs{};
     HostState hostState{HostState::Offline};
+    std::uint32_t hostZone{};
     Vec3 hostPlayerPosition{};
     CameraState camera{};
     WorldProbe groundProbe{};
@@ -125,8 +126,8 @@ static_assert(sizeof(TargetProxy) == 44);
 static_assert(sizeof(WorldProbe) == 44);
 static_assert(sizeof(CameraState) == 32);
 static_assert(sizeof(SadxToErChannel) == 80);
-static_assert(sizeof(ErToSadxChannel) == 5752);
-static_assert(sizeof(SharedState) == 5840);
+static_assert(sizeof(ErToSadxChannel) == 5756);
+static_assert(sizeof(SharedState) == 5844);
 
 static_assert(offsetof(SadxToErChannel, sequence) == 0);
 static_assert(offsetof(SadxToErChannel, protocolVersion) == 4);
