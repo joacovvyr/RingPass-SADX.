@@ -29,6 +29,7 @@ int main()
 
         sadx.protocolVersion = ringpass::kProtocolVersion;
         sadx.frame = ++frame;
+        sadx.heartbeatMs = GetTickCount64();
         sadx.player.character = ringpass::CharacterId::Sonic;
         sadx.player.position = {
             std::cos(t) * 12.0f,
