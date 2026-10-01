@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 
+#include "host_environment.hpp"
 #include <ringpass/ipc.hpp>
 
 namespace {
@@ -11,6 +12,7 @@ ringpass::SharedMemory g_ipc;
 std::atomic_bool g_running{false};
 HANDLE g_thread = nullptr;
 std::uint64_t g_frame = 0;
+ringpass::er::HostEnvironment g_host;
 
 void PublishHostState(ringpass::HostState hostState)
 {
@@ -28,19 +30,35 @@ void PublishHostState(ringpass::HostState hostState)
 
 DWORD WINAPI BridgeThread(LPVOID)
 {
-    g_ipc.open_or_create();
+    const bool hostReady = g_host.initialize();
+
+    if (!g_ipc.open_or_create())
+    {
+        g_host.log().write("failed to open RingPass IPC");
+        return 1;
+    }
+
+    if (!hostReady)
+    {
+        PublishHostState(ringpass::HostState::Offline);
+        g_host.log().write("bridge disabled because host validation failed");
+        return 2;
+    }
+
+    g_host.log().write("RingPassER bridge thread started");
     PublishHostState(ringpass::HostState::Booting);
 
     while (g_running.load())
     {
-        // Real Elden Ring world/camera/entity adapters plug in here.
-        // Until signatures are validated against a supported game build,
-        // publish only bridge liveness.
+        // Build-specific signatures will be registered here.
+        // Until a signature set has been validated on the user's executable,
+        // publish only liveness and host fingerprint information.
         PublishHostState(ringpass::HostState::Booting);
         Sleep(250);
     }
 
     PublishHostState(ringpass::HostState::Offline);
+    g_host.log().write("RingPassER bridge thread stopped");
     return 0;
 }
 
@@ -62,11 +80,13 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID)
     else if (reason == DLL_PROCESS_DETACH)
     {
         g_running.store(false);
+
         if (g_thread)
         {
             CloseHandle(g_thread);
             g_thread = nullptr;
         }
+
         g_ipc.close();
     }
 
