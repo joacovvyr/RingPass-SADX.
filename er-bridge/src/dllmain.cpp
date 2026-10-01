@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 
+#include "enemy_reader.hpp"
 #include "ground_probe_service.hpp"
 #include "host_environment.hpp"
 #include "world_reader.hpp"
@@ -19,6 +20,7 @@ std::uint64_t g_frame = 0;
 ringpass::er::HostEnvironment g_host;
 ringpass::er::WorldReader g_world;
 ringpass::er::GroundProbeService g_ground;
+ringpass::er::EnemyReader g_enemies;
 
 void PublishHostSample(
     ringpass::HostState hostState,
@@ -35,6 +37,9 @@ void PublishHostSample(
     channel.frame = ++g_frame;
     channel.heartbeatMs = GetTickCount64();
 
+    channel.targetCount = 0;
+    channel.groundProbe = {};
+
     if (sample)
     {
         if (sample->playerValid)
@@ -47,12 +52,18 @@ void PublishHostSample(
         if (sample->groundValid)
             channel.groundProbe =
                 sample->groundProbe;
-        else
-            channel.groundProbe = {};
-    }
-    else
-    {
-        channel.groundProbe = {};
+
+        channel.targetCount =
+            sample->targetCount;
+
+        for (std::uint32_t i = 0;
+             i < sample->targetCount &&
+             i < ringpass::kMaxTargets;
+             ++i)
+        {
+            channel.targets[i] =
+                sample->targets[i];
+        }
     }
 
     ringpass::end_write(channel);
@@ -98,12 +109,24 @@ DWORD WINAPI BridgeThread(LPVOID)
             "player/camera telemetry can still run");
     }
 
+    const bool enemiesReady =
+        worldReaderReady &&
+        g_enemies.initialize(g_host);
+
+    if (!enemiesReady)
+    {
+        g_host.log().write(
+            "enemy reader unavailable; "
+            "target proxies will remain empty");
+    }
+
     g_host.log().write(
         "RingPassER bridge thread started");
 
     while (g_running.load())
     {
         ringpass::er::HostSample sample{};
+
         const bool sampled =
             worldReaderReady &&
             g_world.sample(sample);
@@ -118,6 +141,16 @@ DWORD WINAPI BridgeThread(LPVOID)
                 sample.groundValid =
                     g_ground.read_latest(
                         sample.groundProbe);
+            }
+
+            if (enemiesReady)
+            {
+                sample.targetCount =
+                    g_enemies.sample(
+                        sample.playerPosition,
+                        sample.targets.data(),
+                        static_cast<std::uint32_t>(
+                            sample.targets.size()));
             }
 
             PublishHostSample(
