@@ -8,6 +8,7 @@ add_library(RingPassER SHARED
     src/host_environment.cpp
     src/ground_probe_service.cpp
     src/module_scanner.cpp
+    src/stable_frame_service.cpp
     src/world_reader.cpp
 )
 
