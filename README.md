@@ -50,9 +50,12 @@ This avoids both games writing the same frame structure.
 - [x] repository skeleton
 - [x] SADX Mod Loader integration
 - [x] active SADX character/state telemetry
-- [x] bidirectional IPC v2
+- [x] bidirectional IPC v3 with heartbeats / stale detection
 - [x] separate x86 SADX / x64 Elden Ring builds
 - [x] coordinate mapping layer
+- [x] fixed x86/x64 binary IPC layout
+- [x] protocol/coordinate/health tests
+- [x] synthetic SADX target-proxy builder
 - [x] RingPass monitor
 - [x] FakeSADX simulator
 - [x] FakeER simulator
@@ -62,7 +65,7 @@ This avoids both games writing the same frame structure.
 - [ ] validated Elden Ring camera hook
 - [ ] real Elden Ring ground probe
 - [ ] real nearby enemy enumeration
-- [ ] SADX target-proxy injection
+- [ ] live SADX target-list injection (builder complete; hook timing pending)
 - [ ] hide local Tarnished render
 - [ ] first Limgrave collision passthrough
 - [ ] composited SADX character render
