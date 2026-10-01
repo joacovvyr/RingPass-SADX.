@@ -8,6 +8,8 @@ namespace ringpass {
 
 constexpr std::uint32_t kProtocolVersion = 1;
 constexpr std::size_t kMaxTargets = 128;
+constexpr const char* kSADXSharedMemoryName =
+    "Local\\RingPassSADX_SharedFrame_v1";
 
 struct Vec3 {
     float x{};
@@ -62,7 +64,11 @@ struct WorldProbe {
 };
 
 struct SharedFrame {
+    // Writer increments before and after updating.
+    // Odd = being written, even = stable.
+    volatile std::uint32_t sequence{0};
     std::uint32_t protocolVersion{kProtocolVersion};
+
     std::uint64_t sadxFrame{};
     std::uint64_t erFrame{};
 
