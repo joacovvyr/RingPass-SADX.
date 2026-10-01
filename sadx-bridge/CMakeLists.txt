@@ -17,6 +17,7 @@ endif()
 
 add_library(RingPassSADX SHARED
     src/plugin.cpp
+    src/target_proxy_adapter.cpp
 )
 
 target_include_directories(RingPassSADX PRIVATE
