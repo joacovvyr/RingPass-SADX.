@@ -121,7 +121,7 @@ jobs:
           Copy-Item -Force $fakeSadx.FullName "$stage\Tools\FakeSADX.exe"
           Copy-Item -Force $fakeEr.FullName "$stage\Tools\FakeER.exe"
 
-          foreach ($name in @("RingPassMonitor.exe", "RingPassLauncher.exe", "RingPassSelfTest.exe")) {
+          foreach ($name in @("RingPassMonitor.exe", "RingPassLauncher.exe", "RingPassSelfTest.exe", "RingPassDoctor.exe", "RingPassCapture.exe")) {
             $file = Get-ChildItem "D:\a\build-er" -Recurse -Filter $name | Select-Object -First 1
             if (-not $file) { throw "Missing tool: $name" }
             Copy-Item -Force $file.FullName "$stage\Tools\$name"
@@ -130,23 +130,23 @@ jobs:
           Copy-Item -Recurse -Force "D:\a\ringpass\docs\*" "$stage\Docs"
           Copy-Item -Force "D:\a\ringpass\THIRD_PARTY.md" "$stage\THIRD_PARTY.md"
 
-          $zip = "D:\a\RingPass-SADX-v0.5.0-dev.zip"
+          $zip = "D:\a\RingPass-SADX-v0.6.0-dev.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "$stage\*" -DestinationPath $zip
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RingPass-SADX-v0.5.0-dev
-          path: D:\a\RingPass-SADX-v0.5.0-dev.zip
+          name: RingPass-SADX-v0.6.0-dev
+          path: D:\a\RingPass-SADX-v0.6.0-dev.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.5.0-dev"
-          $zip = "D:\a\RingPass-SADX-v0.5.0-dev.zip"
+          $tag = "v0.6.0-dev"
+          $zip = "D:\a\RingPass-SADX-v0.6.0-dev.zip"
           $repo = "${{ github.repository }}"
 
           gh release view $tag --repo $repo 2>$null
@@ -154,8 +154,8 @@ jobs:
             gh release upload $tag $zip --clobber --repo $repo
           }
           else {
-            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.5.0-dev" --prerelease --notes @"
-          Development package for the first full RingPass telemetry tests.
+            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.6.0-dev" --prerelease --notes @"
+          Development package focused on first real-machine testing and diagnostics.
 
           Includes:
           - SADX-Mod/RingPassSADX.dll (x86)
@@ -165,6 +165,8 @@ jobs:
           - RingPassMonitor.exe
           - RingPassLauncher.exe
           - RingPassSelfTest.exe
+          - RingPassDoctor.exe
+          - RingPassCapture.exe
           - FakeSADX.exe (x86)
           - FakeER.exe (x64)
           - project/test documentation
