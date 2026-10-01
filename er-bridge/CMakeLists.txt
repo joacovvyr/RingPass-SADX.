@@ -6,6 +6,7 @@ add_library(RingPassER SHARED
     src/dllmain.cpp
     src/host_environment.cpp
     src/module_scanner.cpp
+    src/world_reader.cpp
 )
 
 target_link_libraries(RingPassER PRIVATE ringpass_protocol)
