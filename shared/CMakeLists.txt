@@ -1,0 +1,2 @@
+add_library(ringpass_protocol INTERFACE)
+target_include_directories(ringpass_protocol INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
