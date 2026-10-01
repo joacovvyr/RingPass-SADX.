@@ -11,7 +11,7 @@
 
 namespace {
 
-bool near(float a, float b, float eps = 0.0001f)
+bool approx_equal(float a, float b, float eps = 0.0001f)
 {
     return std::fabs(a - b) <= eps;
 }
@@ -30,25 +30,25 @@ void test_coordinate_roundtrip()
     const auto er = tx.sadx_to_er(input);
     const auto output = tx.er_to_sadx(er);
 
-    assert(near(input.x, output.x));
-    assert(near(input.y, output.y));
-    assert(near(input.z, output.z));
+    assert(approx_equal(input.x, output.x));
+    assert(approx_equal(input.y, output.y));
+    assert(approx_equal(input.z, output.z));
 }
 
 void test_target_sort()
 {
     ringpass::TargetProxyBuffer buffer;
 
-    ringpass::TargetProxy far{};
-    far.id = 2;
-    far.aimPoint = { 20.0f, 0.0f, 0.0f };
+    ringpass::TargetProxy farTarget{};
+    farTarget.id = 2;
+    farTarget.aimPoint = { 20.0f, 0.0f, 0.0f };
 
-    ringpass::TargetProxy nearTarget{};
-    nearTarget.id = 1;
-    nearTarget.aimPoint = { 2.0f, 0.0f, 0.0f };
+    ringpass::TargetProxy closeTarget{};
+    closeTarget.id = 1;
+    closeTarget.aimPoint = { 2.0f, 0.0f, 0.0f };
 
-    assert(buffer.push(far));
-    assert(buffer.push(nearTarget));
+    assert(buffer.push(farTarget));
+    assert(buffer.push(closeTarget));
     buffer.sort_by_distance({});
 
     assert(buffer.count() == 2);
