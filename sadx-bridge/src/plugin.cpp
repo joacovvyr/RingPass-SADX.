@@ -3,11 +3,15 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "SADXModLoader.h"
+#include "settings.hpp"
+#include "target_injection.hpp"
 #include "target_proxy_adapter.hpp"
 
+#include <ringpass/coordinates.hpp>
 #include <ringpass/health.hpp>
 #include <ringpass/ipc.hpp>
 #include <ringpass/logger.hpp>
@@ -18,6 +22,7 @@ ringpass::SharedMemory g_ipc;
 std::uint64_t g_frame = 0;
 
 std::unique_ptr<ringpass::Logger> g_logger;
+ringpass::sadx::Settings g_settings{};
 ringpass::sadx::TargetProxyAdapter g_targetAdapter;
 std::uint32_t g_lastPreparedTargetCount = 0xFFFFFFFFu;
 
@@ -77,8 +82,11 @@ void PublishPlayerState()
             static_cast<float>(twp->ang.z)
         };
 
-        out.action = static_cast<std::int32_t>(twp->mode);
-        out.grounded = (twp->flag & 3) ? 1 : 0;
+        out.action =
+            static_cast<std::int32_t>(twp->mode);
+
+        out.grounded =
+            (twp->flag & 3) ? 1 : 0;
     }
     else
     {
@@ -87,26 +95,47 @@ void PublishPlayerState()
     }
 
     if (pwp)
-        out.animation = static_cast<std::int32_t>(pwp->mj.reqaction);
+        out.animation =
+            static_cast<std::int32_t>(
+                pwp->mj.reqaction);
 
     if (mwp)
+    {
         out.velocity = {
             mwp->spd.x,
             mwp->spd.y,
             mwp->spd.z
         };
+    }
     else if (pwp)
+    {
         out.velocity = {
             pwp->spd.x,
             pwp->spd.y,
             pwp->spd.z
         };
+    }
 
-    channel.protocolVersion = ringpass::kProtocolVersion;
+    channel.protocolVersion =
+        ringpass::kProtocolVersion;
+
     channel.frame = ++g_frame;
     channel.heartbeatMs = GetTickCount64();
 
     ringpass::end_write(channel);
+}
+
+void ClearPreparedTargets(
+    const char* reason)
+{
+    if (g_lastPreparedTargetCount != 0)
+    {
+        g_targetAdapter.clear();
+        g_lastPreparedTargetCount = 0;
+
+        if (reason)
+            Log(reason);
+    }
 }
 
 void PrepareHostTargets()
@@ -114,78 +143,172 @@ void PrepareHostTargets()
     if (!g_ipc.get())
         return;
 
+    taskwk* player = playertwp[0];
+
+    if (!player)
+    {
+        ClearPreparedTargets(
+            "SADX player unavailable; cleared prepared host targets");
+        return;
+    }
+
     ringpass::ErToSadxChannel host{};
 
-    if (!ringpass::read_stable(g_ipc.get()->er, host))
+    if (!ringpass::read_stable(
+            g_ipc.get()->er,
+            host))
         return;
 
     if (ringpass::channel_health(
             host.protocolVersion,
-            host.heartbeatMs) != ringpass::ChannelHealth::Live)
+            host.heartbeatMs) !=
+        ringpass::ChannelHealth::Live)
     {
-        if (g_lastPreparedTargetCount != 0)
-        {
-            g_targetAdapter.rebuild({}, nullptr);
-            g_lastPreparedTargetCount = 0;
-            Log("ER channel not live; cleared prepared host targets");
-        }
+        ClearPreparedTargets(
+            "ER channel not live; cleared prepared host targets");
         return;
     }
 
-    g_targetAdapter.rebuild(host, playertwp[0]);
+    ringpass::CoordinateTransform transform{};
 
-    if (g_targetAdapter.count() != g_lastPreparedTargetCount)
+    // CoordinateTransform::er_to_sadx divides the host delta by
+    // scale, so this setting means exactly "ER units per SADX unit".
+    transform.scale =
+        g_settings.erUnitsPerSadxUnit;
+
+    transform.sadxOrigin =
     {
-        g_lastPreparedTargetCount = g_targetAdapter.count();
+        player->pos.x,
+        player->pos.y,
+        player->pos.z
+    };
+
+    transform.erOrigin =
+        host.hostPlayerPosition;
+
+    transform.swapYZ =
+        g_settings.swapYZ;
+
+    transform.invertX =
+        g_settings.invertX;
+
+    transform.invertZ =
+        g_settings.invertZ;
+
+    g_targetAdapter.rebuild(
+        host,
+        player,
+        transform);
+
+    if (g_targetAdapter.count() !=
+        g_lastPreparedTargetCount)
+    {
+        g_lastPreparedTargetCount =
+            g_targetAdapter.count();
+
         Log(
             "prepared " +
-            std::to_string(g_lastPreparedTargetCount) +
-            " host target proxies (not injected into SADX list yet)");
+            std::to_string(
+                g_lastPreparedTargetCount) +
+            " mapped host target proxies" +
+            (g_settings.injectTargets
+                ? " for native SADX targeting"
+                : " (native injection disabled)"));
     }
+}
+
+void LogSettings()
+{
+    std::ostringstream line;
+
+    line << "settings: InjectTargets="
+         << (g_settings.injectTargets ? 1 : 0)
+         << " ERUnitsPerSADXUnit="
+         << g_settings.erUnitsPerSadxUnit
+         << " SwapYZ="
+         << (g_settings.swapYZ ? 1 : 0)
+         << " InvertX="
+         << (g_settings.invertX ? 1 : 0)
+         << " InvertZ="
+         << (g_settings.invertZ ? 1 : 0);
+
+    Log(line.str());
 }
 
 } // namespace
 
 extern "C"
 {
-    __declspec(dllexport) void __cdecl Init(
+    __declspec(dllexport)
+    void __cdecl Init(
         const char* path,
         const HelperFunctions& helperFunctions)
     {
         (void)helperFunctions;
 
-        std::filesystem::path logPath;
+        const std::filesystem::path modPath =
+            (path && *path)
+                ? std::filesystem::path(path)
+                : std::filesystem::temp_directory_path() /
+                    "RingPass";
 
-        if (path && *path)
-            logPath = std::filesystem::path(path) /
-                      "logs" /
-                      "ringpass-sadx.log";
-        else
-            logPath = std::filesystem::temp_directory_path() /
-                      "RingPass" /
-                      "ringpass-sadx.log";
+        const auto logPath =
+            modPath /
+            "logs" /
+            "ringpass-sadx.log";
 
-        g_logger = std::make_unique<ringpass::Logger>(logPath);
+        g_logger =
+            std::make_unique<ringpass::Logger>(
+                logPath);
+
+        g_settings =
+            ringpass::sadx::load_settings(
+                modPath);
+
+        LogSettings();
 
         if (g_ipc.open_or_create())
             Log("RingPassSADX initialized; IPC v5 ready");
         else
             Log("RingPassSADX initialized; IPC open/create failed");
 
+        if (g_settings.injectTargets)
+        {
+            if (!ringpass::sadx::initialize_target_injection(
+                    &g_targetAdapter,
+                    g_logger.get()))
+            {
+                Log(
+                    "experimental target injection requested "
+                    "but hook initialization failed");
+            }
+        }
+        else
+        {
+            Log(
+                "experimental native target injection disabled "
+                "(safe default)");
+        }
+
         OutputDebugStringA(
             "[RingPass-SADX] IPC v5 initialized.\n");
     }
 
-    __declspec(dllexport) void __cdecl OnFrame()
+    __declspec(dllexport)
+    void __cdecl OnFrame()
     {
         PublishPlayerState();
         PrepareHostTargets();
     }
 
-    __declspec(dllexport) ModInfo SADXModInfo { ModLoaderVer };
+    __declspec(dllexport)
+    ModInfo SADXModInfo { ModLoaderVer };
 }
 
-BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID)
+BOOL APIENTRY DllMain(
+    HMODULE module,
+    DWORD reason,
+    LPVOID)
 {
     if (reason == DLL_PROCESS_ATTACH)
     {
@@ -193,6 +316,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID)
     }
     else if (reason == DLL_PROCESS_DETACH)
     {
+        ringpass::sadx::shutdown_target_injection();
         g_ipc.close();
     }
 
