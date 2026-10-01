@@ -109,7 +109,9 @@ jobs:
 
           Copy-Item -Force "D:\a\build-sadx\package\RingPass-SADX\RingPassSADX.dll" "$stage\SADX-Mod\RingPassSADX.dll"
           Copy-Item -Force "D:\a\ringpass\sadx-bridge\mod.ini" "$stage\SADX-Mod\mod.ini"
+          Copy-Item -Force "D:\a\ringpass\sadx-bridge\RingPass.ini" "$stage\SADX-Mod\RingPass.ini"
           Copy-Item -Force "D:\a\build-er\package\elden-ring\RingPassER.dll" "$stage\EldenRing-Bridge\RingPassER.dll"
+          Copy-Item -Force "D:\a\ringpass\er-bridge\config_eldenring_ringpass.toml" "$stage\EldenRing-Bridge\config_eldenring_ringpass.toml"
 
           $fakeSadx = Get-ChildItem "D:\a\build-sadx" -Recurse -Filter "FakeSADX.exe" | Select-Object -First 1
           $fakeEr = Get-ChildItem "D:\a\build-er" -Recurse -Filter "FakeER.exe" | Select-Object -First 1
@@ -128,23 +130,23 @@ jobs:
           Copy-Item -Recurse -Force "D:\a\ringpass\docs\*" "$stage\Docs"
           Copy-Item -Force "D:\a\ringpass\THIRD_PARTY.md" "$stage\THIRD_PARTY.md"
 
-          $zip = "D:\a\RingPass-SADX-v0.4.0-dev.zip"
+          $zip = "D:\a\RingPass-SADX-v0.5.0-dev.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "$stage\*" -DestinationPath $zip
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RingPass-SADX-v0.4.0-dev
-          path: D:\a\RingPass-SADX-v0.4.0-dev.zip
+          name: RingPass-SADX-v0.5.0-dev
+          path: D:\a\RingPass-SADX-v0.5.0-dev.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.4.0-dev"
-          $zip = "D:\a\RingPass-SADX-v0.4.0-dev.zip"
+          $tag = "v0.5.0-dev"
+          $zip = "D:\a\RingPass-SADX-v0.5.0-dev.zip"
           $repo = "${{ github.repository }}"
 
           gh release view $tag --repo $repo 2>$null
@@ -152,18 +154,30 @@ jobs:
             gh release upload $tag $zip --clobber --repo $repo
           }
           else {
-            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.4.0-dev" --prerelease --notes @"
-          Development package with both architectures.
+            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.5.0-dev" --prerelease --notes @"
+          Development package for the first full RingPass telemetry tests.
 
           Includes:
           - SADX-Mod/RingPassSADX.dll (x86)
-          - EldenRing-Bridge/RingPassER.dll (x64 bootstrap)
+          - SADX-Mod/RingPass.ini (experimental target injection OFF by default)
+          - EldenRing-Bridge/RingPassER.dll (x64)
+          - EldenRing-Bridge/config_eldenring_ringpass.toml
           - RingPassMonitor.exe
-          - FakeSADX.exe
-          - FakeER.exe
           - RingPassLauncher.exe
           - RingPassSelfTest.exe
-          - build/simulation documentation
+          - FakeSADX.exe (x86)
+          - FakeER.exe (x64)
+          - project/test documentation
+
+          IPC protocol v5 includes:
+          - heartbeats and stale detection
+          - fixed x86/x64 binary layout
+          - stable Elden Ring map coordinates
+          - player/camera telemetry
+          - version-gated game-thread ground probing
+          - version-gated hostile enemy TargetProxy publication
+          - mapped SADX synthetic targets
+          - experimental post-CCL_Analyze native target injection (disabled by default)
 
           CI validates x86 and x64 protocol tests plus an x86 FakeSADX -> x64 FakeER end-to-end IPC self test.
           "@
