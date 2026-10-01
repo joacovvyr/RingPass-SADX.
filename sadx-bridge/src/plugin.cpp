@@ -28,9 +28,7 @@ void PublishPlayerState()
     if (!g_ipc.open_or_create())
         return;
 
-    auto* shared = g_ipc.get();
-    auto& channel = shared->sadx;
-
+    auto& channel = g_ipc.get()->sadx;
     ringpass::begin_write(channel);
 
     auto& out = channel.player;
@@ -71,6 +69,7 @@ void PublishPlayerState()
 
     channel.protocolVersion = ringpass::kProtocolVersion;
     channel.frame = ++g_frame;
+    channel.heartbeatMs = GetTickCount64();
 
     ringpass::end_write(channel);
 }
@@ -87,7 +86,7 @@ extern "C"
         (void)helperFunctions;
 
         g_ipc.open_or_create();
-        OutputDebugStringA("[RingPass-SADX] IPC v2 initialized.\n");
+        OutputDebugStringA("[RingPass-SADX] IPC v3 initialized.\n");
     }
 
     __declspec(dllexport) void __cdecl OnFrame()
