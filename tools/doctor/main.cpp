@@ -3,6 +3,8 @@
 
 #include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <vector>
 #include <iostream>
 #include <string>
 
@@ -11,30 +13,104 @@
 
 namespace {
 
-bool process_exists(const wchar_t* name)
+DWORD process_id(const wchar_t* name)
 {
     PROCESSENTRY32W entry{};
     entry.dwSize = sizeof(entry);
 
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE)
-        return false;
+        return 0;
 
-    bool found = false;
+    DWORD pid = 0;
     if (Process32FirstW(snapshot, &entry))
     {
         do
         {
             if (_wcsicmp(entry.szExeFile, name) == 0)
             {
-                found = true;
+                pid = entry.th32ProcessID;
                 break;
             }
         } while (Process32NextW(snapshot, &entry));
     }
 
     CloseHandle(snapshot);
-    return found;
+    return pid;
+}
+
+std::filesystem::path process_path(DWORD pid)
+{
+    if (!pid)
+        return {};
+
+    HANDLE process = OpenProcess(
+        PROCESS_QUERY_LIMITED_INFORMATION,
+        FALSE,
+        pid);
+
+    if (!process)
+        return {};
+
+    wchar_t buffer[32768]{};
+    DWORD size = static_cast<DWORD>(std::size(buffer));
+
+    std::filesystem::path result;
+
+    if (QueryFullProcessImageNameW(
+            process,
+            0,
+            buffer,
+            &size))
+    {
+        result.assign(buffer, buffer + size);
+    }
+
+    CloseHandle(process);
+    return result;
+}
+
+std::string file_version(const std::filesystem::path& path)
+{
+    if (path.empty())
+        return "unknown";
+
+    DWORD ignored = 0;
+    const DWORD size = GetFileVersionInfoSizeW(
+        path.c_str(),
+        &ignored);
+
+    if (!size)
+        return "unknown";
+
+    std::vector<std::byte> data(size);
+
+    if (!GetFileVersionInfoW(
+            path.c_str(),
+            0,
+            size,
+            data.data()))
+        return "unknown";
+
+    VS_FIXEDFILEINFO* info = nullptr;
+    UINT infoSize = 0;
+
+    if (!VerQueryValueW(
+            data.data(),
+            L"\\",
+            reinterpret_cast<void**>(&info),
+            &infoSize) ||
+        !info ||
+        infoSize < sizeof(VS_FIXEDFILEINFO))
+        return "unknown";
+
+    std::ostringstream out;
+    out << HIWORD(info->dwFileVersionMS) << '.'
+        << LOWORD(info->dwFileVersionMS) << '.'
+        << HIWORD(info->dwFileVersionLS) << '.'
+        << LOWORD(info->dwFileVersionLS);
+
+    return out.str();
 }
 
 std::filesystem::path exe_dir()
@@ -63,10 +139,17 @@ int main()
         return 1;
     }
 
-    const bool sadxProcess =
-        process_exists(L"sonic.exe") ||
-        process_exists(L"Sonic Adventure DX.exe");
-    const bool erProcess = process_exists(L"eldenring.exe");
+    DWORD sadxPid = process_id(L"sonic.exe");
+    if (!sadxPid)
+        sadxPid = process_id(L"Sonic Adventure DX.exe");
+
+    const DWORD erPid = process_id(L"eldenring.exe");
+
+    const bool sadxProcess = sadxPid != 0;
+    const bool erProcess = erPid != 0;
+
+    const auto erPath = process_path(erPid);
+    const auto erVersion = file_version(erPath);
 
     const bool hasMonitor =
         std::filesystem::exists(dir / "RingPassMonitor.exe");
@@ -104,7 +187,10 @@ int main()
 
     report << "[Processes]\n";
     report << "SADX: " << bool_name(sadxProcess) << "\n";
-    report << "Elden Ring: " << bool_name(erProcess) << "\n\n";
+    report << "Elden Ring: " << bool_name(erProcess) << "\n";
+    report << "Elden Ring PID: " << erPid << "\n";
+    report << "Elden Ring path: " << erPath.string() << "\n";
+    report << "Elden Ring file version: " << erVersion << "\n\n";
 
     report << "[Tools]\n";
     report << "Monitor: " << bool_name(hasMonitor) << "\n";
