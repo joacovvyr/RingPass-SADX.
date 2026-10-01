@@ -63,7 +63,7 @@ void test_protocol_defaults()
     assert(state.protocolVersion == ringpass::kProtocolVersion);
     assert(state.sadx.protocolVersion == ringpass::kProtocolVersion);
     assert(state.er.protocolVersion == ringpass::kProtocolVersion);
-    assert(sizeof(ringpass::SharedState) == 5840);
+    assert(sizeof(ringpass::SharedState) == 5844);
 }
 
 void test_channel_health()
