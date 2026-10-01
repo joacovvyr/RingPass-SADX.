@@ -16,13 +16,16 @@ RingPassER.dll currently provides:
 - protocol/version export
 - shared-memory connection
 - host-bridge liveness publication
+- executable PE fingerprint logging
+- executable-region signature scanning
+- read-only WorldChrMan player-position reader
+- read-only FieldArea camera/FOV reader
 
-It deliberately does **not** publish fake Elden Ring world data.
+It deliberately does **not** write to Elden Ring memory. Player/camera access is currently read-only.
 
-Real world adapters still need validated game-build signatures for:
+The remaining host adapters still need implementation/validation for:
 
-- player transform
-- camera transform/FOV
+- runtime validation of the current player/camera signatures
 - collision/raycast access
 - nearby entity enumeration
 - enemy HP/damage events
