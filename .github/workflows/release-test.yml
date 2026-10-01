@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/release-test.yml"
       - "CMakeLists.txt"
+      - "CMakePresets.json"
       - "shared/**"
       - "sadx-bridge/**"
       - "er-bridge/**"
@@ -23,56 +24,85 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: D:\\a
+        working-directory: D:\a
 
     steps:
       - name: Clone RingPass into Windows-safe path
         run: |
-          if (Test-Path "D:\\a\\ringpass") { Remove-Item "D:\\a\\ringpass" -Recurse -Force }
-          git clone "https://github.com/${{ github.repository }}.git" "D:\\a\\ringpass"
-          Set-Location "D:\\a\\ringpass"
+          if (Test-Path "D:\a\ringpass") { Remove-Item "D:\a\ringpass" -Recurse -Force }
+          git clone "https://github.com/${{ github.repository }}.git" "D:\a\ringpass"
+          Set-Location "D:\a\ringpass"
           git checkout "${{ github.sha }}"
 
       - name: Clone SADX Mod Loader SDK
         run: |
-          if (Test-Path "D:\\a\\sadx-mod-loader") { Remove-Item "D:\\a\\sadx-mod-loader" -Recurse -Force }
-          git clone --depth 1 "https://github.com/X-Hax/sadx-mod-loader.git" "D:\\a\\sadx-mod-loader"
+          if (Test-Path "D:\a\sadx-mod-loader") { Remove-Item "D:\a\sadx-mod-loader" -Recurse -Force }
+          git clone --depth 1 "https://github.com/X-Hax/sadx-mod-loader.git" "D:\a\sadx-mod-loader"
 
-      - name: Configure Win32
+      - name: Configure SADX x86
         run: |
-          cmake -S "D:\\a\\ringpass" -B "D:\\a\\ringpass-build" -A Win32 "-DSADX_MOD_LOADER_ROOT=D:\\a\\sadx-mod-loader"
+          cmake -S "D:\a\ringpass" -B "D:\a\build-sadx" -A Win32 `
+            -DRINGPASS_BUILD_SADX=ON `
+            -DRINGPASS_BUILD_ER=OFF `
+            -DRINGPASS_BUILD_TOOLS=OFF `
+            "-DSADX_MOD_LOADER_ROOT=D:\a\sadx-mod-loader"
 
-      - name: Build Release
+      - name: Build SADX x86
         run: |
-          cmake --build "D:\\a\\ringpass-build" --config Release --parallel
+          cmake --build "D:\a\build-sadx" --config Release --parallel
+
+      - name: Configure Elden Ring x64 and tools
+        run: |
+          cmake -S "D:\a\ringpass" -B "D:\a\build-er" -A x64 `
+            -DRINGPASS_BUILD_SADX=OFF `
+            -DRINGPASS_BUILD_ER=ON `
+            -DRINGPASS_BUILD_TOOLS=ON
+
+      - name: Build Elden Ring x64 and tools
+        run: |
+          cmake --build "D:\a\build-er" --config Release --parallel
 
       - name: Assemble downloadable package
         run: |
-          $stage = "D:\\a\\ringpass-release"
+          $stage = "D:\a\ringpass-release"
           if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
-          New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
-          Copy-Item -Recurse -Force "D:\\a\\ringpass-build\\package\\RingPass-SADX" "$stage\\RingPass-SADX"
-          Copy-Item -Force "D:\\a\\ringpass-build\\package\\tools\\RingPassMonitor.exe" "$stage\\RingPassMonitor.exe"
-          Copy-Item -Force "D:\\a\\ringpass\\docs\\BUILD_SADX.md" "$stage\\README-INSTALL.txt"
+          New-Item -ItemType Directory -Force -Path "$stage\SADX-Mod" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage\EldenRing-Bridge" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage\Tools" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage\Docs" | Out-Null
 
-          $zip = "D:\\a\\RingPass-SADX-v0.1.0-test.zip"
+          Copy-Item -Force "D:\a\build-sadx\package\RingPass-SADX\RingPassSADX.dll" "$stage\SADX-Mod\RingPassSADX.dll"
+          Copy-Item -Force "D:\a\ringpass\sadx-bridge\mod.ini" "$stage\SADX-Mod\mod.ini"
+          Copy-Item -Force "D:\a\build-er\package\elden-ring\RingPassER.dll" "$stage\EldenRing-Bridge\RingPassER.dll"
+
+          foreach ($name in @("RingPassMonitor.exe", "FakeER.exe", "FakeSADX.exe", "RingPassLauncher.exe")) {
+            $file = Get-ChildItem "D:\a\build-er" -Recurse -Filter $name | Select-Object -First 1
+            if (-not $file) { throw "Missing tool: $name" }
+            Copy-Item -Force $file.FullName "$stage\Tools\$name"
+          }
+
+          Copy-Item -Force "D:\a\ringpass\docs\BUILD_SADX.md" "$stage\Docs\BUILD_SADX.md"
+          Copy-Item -Force "D:\a\ringpass\docs\SIMULATION.md" "$stage\Docs\SIMULATION.md"
+          Copy-Item -Force "D:\a\ringpass\docs\ARCHITECTURE.md" "$stage\Docs\ARCHITECTURE.md"
+
+          $zip = "D:\a\RingPass-SADX-v0.2.0-dev.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path "$stage\\*" -DestinationPath $zip
+          Compress-Archive -Path "$stage\*" -DestinationPath $zip
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RingPass-SADX-v0.1.0-test
-          path: D:\a\RingPass-SADX-v0.1.0-test.zip
+          name: RingPass-SADX-v0.2.0-dev
+          path: D:\a\RingPass-SADX-v0.2.0-dev.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.1.0-test"
-          $zip = "D:\\a\\RingPass-SADX-v0.1.0-test.zip"
+          $tag = "v0.2.0-dev"
+          $zip = "D:\a\RingPass-SADX-v0.2.0-dev.zip"
           $repo = "${{ github.repository }}"
 
           gh release view $tag --repo $repo 2>$null
@@ -80,14 +110,18 @@ jobs:
             gh release upload $tag $zip --clobber --repo $repo
           }
           else {
-            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.1.0-test" --prerelease --notes @"
-          First downloadable RingPass-SADX test build.
+            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.2.0-dev" --prerelease --notes @"
+          Development package with both architectures.
 
           Includes:
-          - RingPassSADX.dll
-          - mod.ini
+          - SADX-Mod/RingPassSADX.dll (x86)
+          - EldenRing-Bridge/RingPassER.dll (x64 bootstrap)
           - RingPassMonitor.exe
+          - FakeSADX.exe
+          - FakeER.exe
+          - RingPassLauncher.exe
+          - build/simulation documentation
 
-          This release validates live SADX character telemetry and shared-memory IPC before Elden Ring integration.
+          IPC protocol v2 separates SADX->ER and ER->SADX writers.
           "@
           }
