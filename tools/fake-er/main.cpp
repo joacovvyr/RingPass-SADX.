@@ -30,6 +30,7 @@ int main()
 
         er.protocolVersion = ringpass::kProtocolVersion;
         er.frame = ++frame;
+        er.heartbeatMs = GetTickCount64();
         er.hostState = ringpass::HostState::InWorld;
         er.hostPlayerPosition = sadx.player.position;
 
