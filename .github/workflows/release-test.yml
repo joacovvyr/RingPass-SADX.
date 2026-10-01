@@ -14,6 +14,10 @@ on:
       - "tools/**"
   workflow_dispatch:
 
+concurrency:
+  group: ringpass-dev-release
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -39,12 +43,12 @@ jobs:
           if (Test-Path "D:\a\sadx-mod-loader") { Remove-Item "D:\a\sadx-mod-loader" -Recurse -Force }
           git clone --depth 1 "https://github.com/X-Hax/sadx-mod-loader.git" "D:\a\sadx-mod-loader"
 
-      - name: Configure SADX x86
+      - name: Configure SADX x86 and x86 tools
         run: |
           cmake -S "D:\a\ringpass" -B "D:\a\build-sadx" -A Win32 `
             -DRINGPASS_BUILD_SADX=ON `
             -DRINGPASS_BUILD_ER=OFF `
-            -DRINGPASS_BUILD_TOOLS=OFF `
+            -DRINGPASS_BUILD_TOOLS=ON `
             "-DSADX_MOD_LOADER_ROOT=D:\a\sadx-mod-loader"
 
       - name: Build SADX x86
@@ -58,7 +62,7 @@ jobs:
             -DRINGPASS_BUILD_ER=ON `
             -DRINGPASS_BUILD_TOOLS=ON
 
-      - name: Build Elden Ring x64 and tools
+      - name: Build Elden Ring x64 and x64 tools
         run: |
           cmake --build "D:\a\build-er" --config Release --parallel
 
@@ -90,23 +94,23 @@ jobs:
           Copy-Item -Force "D:\a\ringpass\docs\SIMULATION.md" "$stage\Docs\SIMULATION.md"
           Copy-Item -Force "D:\a\ringpass\docs\ARCHITECTURE.md" "$stage\Docs\ARCHITECTURE.md"
 
-          $zip = "D:\a\RingPass-SADX-v0.3.0-dev.zip"
+          $zip = "D:\a\RingPass-SADX-v0.4.0-dev.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "$stage\*" -DestinationPath $zip
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RingPass-SADX-v0.3.0-dev
-          path: D:\a\RingPass-SADX-v0.3.0-dev.zip
+          name: RingPass-SADX-v0.4.0-dev
+          path: D:\a\RingPass-SADX-v0.4.0-dev.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.3.0-dev"
-          $zip = "D:\a\RingPass-SADX-v0.3.0-dev.zip"
+          $tag = "v0.4.0-dev"
+          $zip = "D:\a\RingPass-SADX-v0.4.0-dev.zip"
           $repo = "${{ github.repository }}"
 
           gh release view $tag --repo $repo 2>$null
@@ -114,7 +118,7 @@ jobs:
             gh release upload $tag $zip --clobber --repo $repo
           }
           else {
-            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.3.0-dev" --prerelease --notes @"
+            gh release create $tag $zip --repo $repo --target "${{ github.sha }}" --title "RingPass-SADX v0.4.0-dev" --prerelease --notes @"
           Development package with both architectures.
 
           Includes:
@@ -124,8 +128,9 @@ jobs:
           - FakeSADX.exe
           - FakeER.exe
           - RingPassLauncher.exe
+          - RingPassSelfTest.exe
           - build/simulation documentation
 
-          IPC protocol v3 adds fixed cross-bitness layout, heartbeats and stale-connection detection.
+          CI validates x86 and x64 protocol tests plus an x86 FakeSADX -> x64 FakeER end-to-end IPC self test.
           "@
           }
