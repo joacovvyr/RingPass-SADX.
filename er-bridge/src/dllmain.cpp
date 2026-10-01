@@ -1,8 +1,7 @@
 #include <windows.h>
 
 #include <atomic>
-#include <chrono>
-#include <thread>
+#include <cstdint>
 
 #include <ringpass/ipc.hpp>
 
@@ -23,6 +22,7 @@ void PublishHostState(ringpass::HostState hostState)
     channel.protocolVersion = ringpass::kProtocolVersion;
     channel.hostState = hostState;
     channel.frame = ++g_frame;
+    channel.heartbeatMs = GetTickCount64();
     ringpass::end_write(channel);
 }
 
@@ -33,9 +33,9 @@ DWORD WINAPI BridgeThread(LPVOID)
 
     while (g_running.load())
     {
-        // The real Elden Ring world/camera/entity adapters plug in here.
+        // Real Elden Ring world/camera/entity adapters plug in here.
         // Until signatures are validated against a supported game build,
-        // this module deliberately publishes only bridge liveness.
+        // publish only bridge liveness.
         PublishHostState(ringpass::HostState::Booting);
         Sleep(250);
     }
