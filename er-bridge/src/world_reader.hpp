@@ -16,6 +16,7 @@ struct HostSample {
     bool cameraValid{false};
     bool groundValid{false};
 
+    std::uint32_t hostZone{};
     ringpass::Vec3 playerPosition{};
     ringpass::CameraState camera{};
     ringpass::WorldProbe groundProbe{};
