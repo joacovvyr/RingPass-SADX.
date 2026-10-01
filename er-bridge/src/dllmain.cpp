@@ -6,6 +6,7 @@
 #include "enemy_reader.hpp"
 #include "ground_probe_service.hpp"
 #include "host_environment.hpp"
+#include "stable_frame_service.hpp"
 #include "world_reader.hpp"
 
 #include <ringpass/ipc.hpp>
@@ -21,6 +22,7 @@ ringpass::er::HostEnvironment g_host;
 ringpass::er::WorldReader g_world;
 ringpass::er::GroundProbeService g_ground;
 ringpass::er::EnemyReader g_enemies;
+ringpass::er::StableFrameService g_stableFrame;
 
 void PublishHostSample(
     ringpass::HostState hostState,
@@ -37,11 +39,14 @@ void PublishHostSample(
     channel.frame = ++g_frame;
     channel.heartbeatMs = GetTickCount64();
 
+    channel.hostZone = 0;
     channel.targetCount = 0;
     channel.groundProbe = {};
 
     if (sample)
     {
+        channel.hostZone = sample->hostZone;
+
         if (sample->playerValid)
             channel.hostPlayerPosition =
                 sample->playerPosition;
@@ -98,6 +103,17 @@ DWORD WINAPI BridgeThread(LPVOID)
             "read-only player/camera reader ready");
     }
 
+    const bool stableFrameReady =
+        worldReaderReady &&
+        g_stableFrame.initialize(g_host);
+
+    if (!stableFrameReady)
+    {
+        g_host.log().write(
+            "stable map coordinates unavailable; "
+            "raw host coordinates will be reported");
+    }
+
     const bool groundReady =
         worldReaderReady &&
         g_ground.initialize(g_host);
@@ -133,24 +149,66 @@ DWORD WINAPI BridgeThread(LPVOID)
 
         if (sampled && sample.playerValid)
         {
+            const ringpass::Vec3 havokPlayer =
+                sample.playerPosition;
+
+            ringpass::er::StableFrameSample stable{};
+            const bool haveStable =
+                stableFrameReady &&
+                g_stableFrame.sample(stable);
+
             if (groundReady)
             {
-                g_ground.request(
-                    sample.playerPosition);
+                g_ground.request(havokPlayer);
 
                 sample.groundValid =
                     g_ground.read_latest(
                         sample.groundProbe);
             }
 
+            const ringpass::Vec3 offset =
+                haveStable
+                    ? stable.havokOffset
+                    : ringpass::Vec3{};
+
             if (enemiesReady)
             {
                 sample.targetCount =
                     g_enemies.sample(
-                        sample.playerPosition,
+                        offset,
                         sample.targets.data(),
                         static_cast<std::uint32_t>(
                             sample.targets.size()));
+            }
+
+            if (haveStable)
+            {
+                sample.hostZone =
+                    stable.zone;
+
+                sample.playerPosition =
+                    stable.playerPosition;
+
+                if (sample.cameraValid)
+                {
+                    sample.camera.position =
+                        ringpass::er::StableFrameService::to_stable(
+                            sample.camera.position,
+                            offset);
+                }
+
+                if (sample.groundValid)
+                {
+                    sample.groundProbe.origin =
+                        ringpass::er::StableFrameService::to_stable(
+                            sample.groundProbe.origin,
+                            offset);
+
+                    sample.groundProbe.hitPosition =
+                        ringpass::er::StableFrameService::to_stable(
+                            sample.groundProbe.hitPosition,
+                            offset);
+                }
             }
 
             PublishHostSample(
