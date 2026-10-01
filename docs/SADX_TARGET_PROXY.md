@@ -45,8 +45,24 @@ This preserves SADX's original angle/range/character checks.
 
 ## Current safety state
 
-The synthetic-target builder is compiled and type-checked, but it is **not yet inserted into the live SADX enemy list**.
+The synthetic-target builder and native list injection path are now implemented.
 
-The insertion point must be validated in-game because SADX rebuilds/clears collision target lists during its frame collision analysis. Injecting at the wrong point would either be immediately erased or leave stale pointers.
+RingPass hooks SADX `CCL_Analyze` at `0x420700`, calls the original collision analysis first, then appends mapped synthetic targets to `around_enemy_list_p0` and updates `ael_num0`.
 
-Once the first SADX telemetry test succeeds, the next runtime experiment is to determine the correct post-collision-analysis injection callback/hook.
+This preserves the list SADX itself just built and leaves the final target choice to the original character code.
+
+The hook is **disabled by default** in `RingPass.ini`:
+
+```ini
+[Experimental]
+InjectTargets=0
+```
+
+Before enabling it, validate:
+
+1. base SADX telemetry,
+2. ER/SADX coordinate mapping,
+3. target proxy positions,
+4. stability of the normal SADX collision loop.
+
+The coordinate mapper anchors the current Elden Ring host-player position to the current SADX player position, then applies scale/axis settings before synthetic targets reach native SADX targeting.
