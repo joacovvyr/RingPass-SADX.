@@ -168,12 +168,12 @@ extern "C"
         g_logger = std::make_unique<ringpass::Logger>(logPath);
 
         if (g_ipc.open_or_create())
-            Log("RingPassSADX initialized; IPC v4 ready");
+            Log("RingPassSADX initialized; IPC v5 ready");
         else
             Log("RingPassSADX initialized; IPC open/create failed");
 
         OutputDebugStringA(
-            "[RingPass-SADX] IPC v4 initialized.\n");
+            "[RingPass-SADX] IPC v5 initialized.\n");
     }
 
     __declspec(dllexport) void __cdecl OnFrame()
