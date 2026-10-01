@@ -1,0 +1,5 @@
+add_executable(RingPassProtocolTests protocol_tests.cpp)
+target_link_libraries(RingPassProtocolTests PRIVATE ringpass_protocol)
+target_compile_definitions(RingPassProtocolTests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+
+add_test(NAME RingPassProtocolTests COMMAND RingPassProtocolTests)
