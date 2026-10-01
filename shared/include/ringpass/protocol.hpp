@@ -7,11 +7,14 @@
 
 namespace ringpass {
 
-constexpr std::uint32_t kProtocolVersion = 2;
+constexpr std::uint32_t kProtocolVersion = 3;
 constexpr std::uint32_t kSharedMagic = 0x52505358u; // RPSX
 constexpr std::size_t kMaxTargets = 128;
+constexpr std::uint64_t kHeartbeatTimeoutMs = 2000;
 constexpr const char* kSharedMemoryName =
-    "Local\\RingPassSADX_SharedState_v2";
+    "Local\\RingPassSADX_SharedState_v3";
+
+#pragma pack(push, 4)
 
 struct Vec3 {
     float x{};
@@ -85,6 +88,7 @@ struct SadxToErChannel {
     volatile std::uint32_t sequence{0};
     std::uint32_t protocolVersion{kProtocolVersion};
     std::uint64_t frame{};
+    std::uint64_t heartbeatMs{};
     CharacterState player{};
 };
 
@@ -92,6 +96,7 @@ struct ErToSadxChannel {
     volatile std::uint32_t sequence{0};
     std::uint32_t protocolVersion{kProtocolVersion};
     std::uint64_t frame{};
+    std::uint64_t heartbeatMs{};
     HostState hostState{HostState::Offline};
     Vec3 hostPlayerPosition{};
     CameraState camera{};
@@ -107,8 +112,20 @@ struct SharedState {
     ErToSadxChannel er{};
 };
 
+#pragma pack(pop)
+
 static_assert(std::is_trivially_copyable_v<Vec3>);
 static_assert(std::is_trivially_copyable_v<CharacterState>);
 static_assert(std::is_trivially_copyable_v<SharedState>);
+
+static_assert(offsetof(SadxToErChannel, sequence) == 0);
+static_assert(offsetof(SadxToErChannel, protocolVersion) == 4);
+static_assert(offsetof(SadxToErChannel, frame) == 8);
+static_assert(offsetof(SadxToErChannel, heartbeatMs) == 16);
+
+static_assert(offsetof(ErToSadxChannel, sequence) == 0);
+static_assert(offsetof(ErToSadxChannel, protocolVersion) == 4);
+static_assert(offsetof(ErToSadxChannel, frame) == 8);
+static_assert(offsetof(ErToSadxChannel, heartbeatMs) == 16);
 
 } // namespace ringpass
