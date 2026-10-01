@@ -46,9 +46,9 @@ SADX + SA Mod Loader
 - [x] shared protocol definition
 - [x] SADX bridge stub
 - [x] Elden Ring bridge stub
-- [ ] read active SADX character
-- [ ] read character transform/state
-- [ ] shared-memory transport
+- [x] read active SADX character
+- [x] read character transform/state
+- [x] shared-memory transport
 - [ ] read Elden Ring ground probe
 - [ ] camera synchronization
 - [ ] hide Tarnished proxy
