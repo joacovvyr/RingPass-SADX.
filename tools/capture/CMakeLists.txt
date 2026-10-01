@@ -1,0 +1,3 @@
+add_executable(RingPassCapture main.cpp)
+target_link_libraries(RingPassCapture PRIVATE ringpass_protocol)
+target_compile_definitions(RingPassCapture PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
