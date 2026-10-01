@@ -1,1 +1,4 @@
 add_subdirectory(monitor)
+add_subdirectory(fake-er)
+add_subdirectory(fake-sadx)
+add_subdirectory(launcher)
