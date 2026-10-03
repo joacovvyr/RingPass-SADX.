@@ -35,6 +35,7 @@ public:
         return regions_;
     }
 
+    // Returns an address only when exactly one executable-region match exists.
     std::optional<std::uintptr_t> find(const char* pattern) const;
 
 private:
