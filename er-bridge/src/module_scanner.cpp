@@ -112,6 +112,7 @@ std::optional<std::uintptr_t> ModuleScanner::find(
         return std::nullopt;
 
     const std::size_t count = pattern->bytes.size();
+    std::optional<std::uintptr_t> result;
 
     for (const auto& region : regions_)
     {
@@ -135,12 +136,18 @@ std::optional<std::uintptr_t> ModuleScanner::find(
             }
 
             if (match)
-                return reinterpret_cast<std::uintptr_t>(
+            {
+                // A generic prologue can match unrelated functions. Never call
+                // the first candidate when the signature is ambiguous.
+                if (result)
+                    return std::nullopt;
+                result = reinterpret_cast<std::uintptr_t>(
                     region.address + i);
+            }
         }
     }
 
-    return std::nullopt;
+    return result;
 }
 
 } // namespace ringpass::er
