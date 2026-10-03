@@ -80,7 +80,7 @@ bool GroundProbeService::initialize(HostEnvironment& host)
     {
         host.log().write(
             "ground probe disabled: required game-thread signatures "
-            "were not found");
+            "were not found uniquely (missing or ambiguous)");
         return false;
     }
 
